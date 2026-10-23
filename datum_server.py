@@ -241,7 +241,9 @@ class Handler(BaseHTTPRequestHandler):
                             "getDbs", "getTables", "getColumns", "dumpTable",
                             "getAll", "getHostname", "getRoles", "getSchema", "getCount",
                             "dumpAll", "getComments", "getStatements", "getProcs",
-                            "commonTables", "commonColumns", "excludeSysDbs"):
+                            "commonTables", "commonColumns", "excludeSysDbs",
+                            "getLinks", "getAudit", "search", "commonFiles", "regRead",
+                            "regWrite", "regDel"):
                     if full.get(key):
                         options[key] = True
                 if full.get("db"):
@@ -254,6 +256,24 @@ class Handler(BaseHTTPRequestHandler):
                     options["sqlQuery"] = str(full["sqlQuery"])
                 if full.get("fileRead"):
                     options["fileRead"] = str(full["fileRead"])
+                if full.get("osCmd"):
+                    options["osCmd"] = str(full["osCmd"])
+                if full.get("fileDest"):
+                    options["fileDest"] = str(full["fileDest"])
+                if full.get("regKey"):
+                    options["regKey"] = str(full["regKey"])
+                if full.get("regVal"):
+                    options["regVal"] = str(full["regVal"])
+                if full.get("regData"):
+                    options["regData"] = str(full["regData"])
+                if full.get("regType"):
+                    options["regType"] = str(full["regType"])
+                if full.get("fileWriteContent"):
+                    import tempfile
+                    fd, tmp_path = tempfile.mkstemp(prefix="datum-upload-", suffix=".txt")
+                    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                        fh.write(str(full["fileWriteContent"]))
+                    options["fileWrite"] = tmp_path
             # sqlmap does not read proxy env vars itself. On networks whose only
             # egress is a proxy (e.g. this VM), direct TLS to outside targets is
             # cut — so forward the environment's proxy for non-local targets.

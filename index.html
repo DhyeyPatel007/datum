@@ -334,12 +334,28 @@ button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
             <label class="f-chk"><input type="checkbox" data-a="dumpAll"> Dump ALL tables</label>
             <label class="f-chk"><input type="checkbox" data-a="excludeSysDbs"> Exclude system databases</label>
             <label class="f-chk"><input type="checkbox" data-a="getAll"> EVERYTHING (--all)</label>
+            <label class="f-chk"><input type="checkbox" data-a="search"> Search mode (find db/table/column by name — uses the fields below)</label>
+            <label class="f-chk"><input type="checkbox" data-a="getLinks"> Extract links</label>
+            <label class="f-chk"><input type="checkbox" data-a="getAudit"> Audit forms for stored XSS</label>
+            <label class="f-chk"><input type="checkbox" data-a="commonFiles"> Brute-force common files</label>
+            <label class="f-chk"><input type="checkbox" data-a="regRead"> Read a Windows registry value</label>
+            <label class="f-chk"><input type="checkbox" data-a="regWrite"> Write a Windows registry value</label>
+            <label class="f-chk"><input type="checkbox" data-a="regDel"> Delete a Windows registry value</label>
           </div>
           <div class="f-grid" style="margin-top:14px">
             <div class="f-field"><label for="fSqlQuery">Custom SQL Query</label><input class="f-input mono" id="fSqlQuery" type="text" placeholder="SELECT sqlite_version()"></div>
             <div class="f-field"><label for="fFileRead">Read a File From the Server</label><input class="f-input mono" id="fFileRead" type="text" placeholder="/etc/passwd"></div>
             <div class="f-field"><label for="fCol">Column (for column actions)</label><input class="f-input mono" id="fCol" type="text" placeholder="e.g. name"></div>
           </div>
+          <div class="f-grid" style="margin-top:14px">
+            <div class="f-field"><label for="fOsCmd">Run ONE OS Command</label><input class="f-input mono" id="fOsCmd" type="text" placeholder="whoami"></div>
+            <div class="f-field"><label for="fFileDest">Upload Destination Path (on server)</label><input class="f-input mono" id="fFileDest" type="text" placeholder="C:/inetpub/wwwroot/shell.txt"></div>
+            <div class="f-field"><label for="fRegKey">Registry Key</label><input class="f-input mono" id="fRegKey" type="text" placeholder="HKLM\SOFTWARE\..."></div>
+            <div class="f-field"><label for="fRegVal">Registry Value Name</label><input class="f-input mono" id="fRegVal" type="text" placeholder="e.g. ProductName"></div>
+            <div class="f-field"><label for="fRegData">Registry Data (for write)</label><input class="f-input mono" id="fRegData" type="text" placeholder="value to write"></div>
+            <div class="f-field"><label for="fRegType">Registry Type (for write)</label><input class="f-input mono" id="fRegType" type="text" placeholder="REG_SZ"></div>
+          </div>
+          <div class="f-field" style="margin-top:14px"><label for="fFileContent">File Content to Upload (used with the destination path above)</label><textarea class="f-input mono" id="fFileContent" rows="3" placeholder="Paste the file content to write to the target server"></textarea></div>
         </div>
 
         <div class="band">
@@ -578,7 +594,11 @@ function collectFull(){
     technique: tech || "BEUSTQ", tamper: $("fTamper").value,
     threads: parseInt($("fThreads").value, 10), delay: parseFloat($("fDelay").value) || 0,
     db: $("fDb").value.trim(), tbl: $("fTbl").value.trim(), col: $("fCol").value.trim(),
-    sqlQuery: $("fSqlQuery").value.trim(), fileRead: $("fFileRead").value.trim()
+    sqlQuery: $("fSqlQuery").value.trim(), fileRead: $("fFileRead").value.trim(),
+    osCmd: $("fOsCmd").value.trim(), fileDest: $("fFileDest").value.trim(),
+    regKey: $("fRegKey").value.trim(), regVal: $("fRegVal").value.trim(),
+    regData: $("fRegData").value.trim(), regType: $("fRegType").value.trim(),
+    fileWriteContent: $("fFileContent").value
   };
   Array.prototype.forEach.call($("fActions").querySelectorAll("input[type=checkbox]"), function(cb){
     if (cb.checked) f[cb.getAttribute("data-a")] = true;
@@ -598,13 +618,22 @@ function fullCmd(f){
               getDbs:"--dbs", getTables:"--tables", getColumns:"--columns", dumpTable:"--dump",
               getAll:"--all", getHostname:"--hostname", getRoles:"--roles", getSchema:"--schema", getCount:"--count",
               dumpAll:"--dump-all", getComments:"--comments", getStatements:"--statements", getProcs:"--procedures",
-              commonTables:"--common-tables", commonColumns:"--common-columns", excludeSysDbs:"--exclude-sysdbs" };
+              commonTables:"--common-tables", commonColumns:"--common-columns", excludeSysDbs:"--exclude-sysdbs",
+              getLinks:"--links", getAudit:"--audit", search:"--search", commonFiles:"--common-files", regRead:"--reg-read",
+              regWrite:"--reg-write", regDel:"--reg-del" };
   Object.keys(map).forEach(function(k){ if (f[k]) c += " " + map[k]; });
   if (f.db) c += " -D " + f.db;
   if (f.tbl) c += " -T " + f.tbl;
   if (f.col) c += " -C " + f.col;
   if (f.sqlQuery) c += ' --sql-query="' + f.sqlQuery + '"';
   if (f.fileRead) c += ' --file-read="' + f.fileRead + '"';
+  if (f.osCmd) c += ' --os-cmd="' + f.osCmd + '"';
+  if (f.fileWriteContent) c += ' --file-write="<pasted content>"';
+  if (f.fileDest) c += ' --file-dest="' + f.fileDest + '"';
+  if (f.regKey) c += ' --reg-key="' + f.regKey + '"';
+  if (f.regVal) c += ' --reg-value="' + f.regVal + '"';
+  if (f.regData) c += ' --reg-data="' + f.regData + '"';
+  if (f.regType) c += ' --reg-type="' + f.regType + '"';
   return c;
 }
 function equivalentCmd(){
@@ -680,7 +709,7 @@ function finishScan(data, lines, aborted){
     if (entry.type_name === "TECHNIQUES") injections = entry.value || [];
     if (entry.type_name === "DBMS_FINGERPRINT") fingerprint = entry.value;
     if (entry.type_name === "BANNER") banner = entry.value;
-    if (["CURRENT_USER","CURRENT_DB","IS_DBA","DBS","TABLES","COLUMNS","USERS","PASSWORDS","PRIVILEGES","DUMP_TABLE","HOSTNAME","ROLES","SCHEMA","COUNT","COMMON_TABLES","COMMON_COLUMNS","SQL_QUERY","FILE_READ","STATEMENTS","PROCEDURES"].indexOf(entry.type_name) >= 0)
+    if (["CURRENT_USER","CURRENT_DB","IS_DBA","DBS","TABLES","COLUMNS","USERS","PASSWORDS","PRIVILEGES","DUMP_TABLE","HOSTNAME","ROLES","SCHEMA","COUNT","COMMON_TABLES","COMMON_COLUMNS","SQL_QUERY","FILE_READ","STATEMENTS","PROCEDURES","SEARCH","FILE_WRITE","OS_CMD","REG_READ","LINKS","AUDIT"].indexOf(entry.type_name) >= 0)
       extracted[entry.type_name] = entry.value;
   });
   if (banner && !extracted.BANNER) extracted.BANNER = banner;
@@ -807,7 +836,9 @@ function renderExtracted(x){
     ["ROLES","User Roles"],["SCHEMA","Database Schema"],["COUNT","Row Counts"],
     ["COMMON_TABLES","Common Tables Found"],["COMMON_COLUMNS","Common Columns Found"],
     ["SQL_QUERY","Custom SQL Query Result"],["FILE_READ","File Read Result"],
-    ["STATEMENTS","Stored Statements"],["PROCEDURES","Stored Procedures"]
+    ["STATEMENTS","Stored Statements"],["PROCEDURES","Stored Procedures"],
+    ["SEARCH","Search Results"],["FILE_WRITE","File Write Result"],["OS_CMD","OS Command Output"],
+    ["REG_READ","Registry Read Result"],["LINKS","Extracted Links"],["AUDIT","Form Audit"]
   ];
   var html = "";
   order.forEach(function(pair){
