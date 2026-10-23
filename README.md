@@ -16,13 +16,16 @@ The server auto-starts sqlmap's REST API (`sqlmapapi.py`, port 8775) on the firs
 
 ## Hosting (Render, locked down)
 
-`render.yaml` is included. It clones sqlmap at build time and starts the server in **hosted mode** (`DATUM_HOSTED=1`), which changes three things vs local mode:
+`render.yaml` is included. It clones sqlmap at build time and starts the server in **hosted mode** (`DATUM_HOSTED=1`), which changes two things vs local mode:
 
-1. The whole app sits behind HTTP Basic auth — set `DATUM_UI_PASSWORD` in the Render dashboard (username: `datum`). Hosted mode **refuses to run any scan** if no password is set.
-2. Targets are restricted to the owner's own domains via `DATUM_ALLOWED_HOSTS` (default: krynex.in, auditify.krynex.in, dopadiary.vercel.app, gillnet-backend-recovery.onrender.com). Any other host gets a 403 before the engine is touched.
-3. The server binds `0.0.0.0:$PORT` (local mode stays `127.0.0.1`).
+1. The whole app sits behind HTTP Basic auth — set `DATUM_UI_PASSWORD` in the Render dashboard (username: `datum`). The operator is the only user, so any target they enter is accepted. Hosted mode **refuses to run any scan** if no password is set: an unauthenticated public scanner would be abused under your own account within hours.
+2. The server binds `0.0.0.0:$PORT` (local mode stays `127.0.0.1`).
 
-Never host this without hosted mode: a public, unauthenticated SQL-injection scanner would be an abuse magnet and would get shut down — and rightly so.
+**Responsible use:** only scan systems you own or have explicit permission to test — the same rule sqlmap itself ships with. DATUM is a friendly front-end; it does not grant anyone rights over anyone else's systems.
+
+## License
+
+MIT (see `LICENSE`) for the DATUM code in this repo. The scan engine is [sqlmap](https://github.com/sqlmapproject/sqlmap) (GPLv2), cloned separately at install/deploy time — it is not part of this repository.
 
 ## Practice lab (built in, localhost only)
 

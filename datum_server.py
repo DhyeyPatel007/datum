@@ -34,15 +34,13 @@ if not os.path.isfile(os.path.join(SQLMAP_DIR, "sqlmapapi.py")) and os.path.isfi
 ENGINE = "http://127.0.0.1:8775"
 PORT = int(os.environ.get("PORT", "8420"))
 
-# Hosted mode (DATUM_HOSTED=1): the app must never become a public scanner.
-# - DATUM_UI_PASSWORD: HTTP Basic auth over the whole app (username: datum).
-# - Target allowlist: only the owner's own domains may be scanned.
+# Hosted mode (DATUM_HOSTED=1): DATUM_UI_PASSWORD (HTTP Basic auth over the
+# whole app, username: datum) is the gate — the operator is the only user, so
+# any target they enter is accepted. Hosted mode refuses scans with no
+# password set, because an unauthenticated public scanner would be abused
+# under the operator's own account within hours.
 HOSTED = os.environ.get("DATUM_HOSTED") == "1"
 UI_PASSWORD = os.environ.get("DATUM_UI_PASSWORD", "")
-ALLOWED_HOSTS = [h.strip().lower() for h in os.environ.get(
-    "DATUM_ALLOWED_HOSTS",
-    "krynex.in,auditify.krynex.in,dopadiary.vercel.app,gillnet-backend-recovery.onrender.com,127.0.0.1,localhost",
-).split(",") if h.strip()]
 
 MODES = {
     "quick":   {"level": 1, "risk": 1, "technique": "BEU",   "smart": True},
@@ -213,14 +211,9 @@ class Handler(BaseHTTPRequestHandler):
             if not (url.startswith("http://") or url.startswith("https://")) or "?" not in url:
                 self._json({"success": False, "message": "URL must start with http:// or https:// and contain a query parameter"}, 400)
                 return
-            if HOSTED:
-                if not UI_PASSWORD:
-                    self._json({"success": False, "message": "Hosted mode requires DATUM_UI_PASSWORD to be set"}, 500)
-                    return
-                host = (urlparse(url).hostname or "").lower()
-                if not any(host == a or host.endswith("." + a) for a in ALLOWED_HOSTS):
-                    self._json({"success": False, "message": "Hosted DATUM only scans the owner's own domains (allowlist). '%s' is not on it." % host}, 403)
-                    return
+            if HOSTED and not UI_PASSWORD:
+                self._json({"success": False, "message": "Hosted mode requires DATUM_UI_PASSWORD to be set"}, 500)
+                return
             if not ensure_engine():
                 self._json({"success": False, "message": "sqlmap engine could not be started (clone missing at %s)" % SQLMAP_DIR}, 502)
                 return

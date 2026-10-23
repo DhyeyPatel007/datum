@@ -8,8 +8,6 @@ services:
     envVars:
       - key: DATUM_HOSTED
         value: "1"
-      - key: DATUM_ALLOWED_HOSTS
-        value: "krynex.in,auditify.krynex.in,dopadiary.vercel.app,gillnet-backend-recovery.onrender.com"
       - key: DATUM_UI_PASSWORD
         sync: false   # set this in the Render dashboard — the app refuses scans without it in hosted mode
       - key: PYTHON_VERSION
