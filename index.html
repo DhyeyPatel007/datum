@@ -322,6 +322,23 @@ button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
             <label class="f-chk"><input type="checkbox" data-a="getUsers"> List users</label>
             <label class="f-chk"><input type="checkbox" data-a="getPasswordHashes"> Password hashes</label>
             <label class="f-chk"><input type="checkbox" data-a="getPrivileges"> User privileges</label>
+            <label class="f-chk"><input type="checkbox" data-a="getRoles"> User roles</label>
+            <label class="f-chk"><input type="checkbox" data-a="getHostname"> Hostname</label>
+            <label class="f-chk"><input type="checkbox" data-a="getSchema"> Full schema</label>
+            <label class="f-chk"><input type="checkbox" data-a="getCount"> Row counts</label>
+            <label class="f-chk"><input type="checkbox" data-a="getComments"> Column comments</label>
+            <label class="f-chk"><input type="checkbox" data-a="getStatements"> Stored statements</label>
+            <label class="f-chk"><input type="checkbox" data-a="getProcs"> Stored procedures</label>
+            <label class="f-chk"><input type="checkbox" data-a="commonTables"> Brute-force common tables</label>
+            <label class="f-chk"><input type="checkbox" data-a="commonColumns"> Brute-force common columns</label>
+            <label class="f-chk"><input type="checkbox" data-a="dumpAll"> Dump ALL tables</label>
+            <label class="f-chk"><input type="checkbox" data-a="excludeSysDbs"> Exclude system databases</label>
+            <label class="f-chk"><input type="checkbox" data-a="getAll"> EVERYTHING (--all)</label>
+          </div>
+          <div class="f-grid" style="margin-top:14px">
+            <div class="f-field"><label for="fSqlQuery">Custom SQL Query</label><input class="f-input mono" id="fSqlQuery" type="text" placeholder="SELECT sqlite_version()"></div>
+            <div class="f-field"><label for="fFileRead">Read a File From the Server</label><input class="f-input mono" id="fFileRead" type="text" placeholder="/etc/passwd"></div>
+            <div class="f-field"><label for="fCol">Column (for column actions)</label><input class="f-input mono" id="fCol" type="text" placeholder="e.g. name"></div>
           </div>
         </div>
 
@@ -560,7 +577,8 @@ function collectFull(){
     level: parseInt($("fLevel").value, 10), risk: parseInt($("fRisk").value, 10),
     technique: tech || "BEUSTQ", tamper: $("fTamper").value,
     threads: parseInt($("fThreads").value, 10), delay: parseFloat($("fDelay").value) || 0,
-    db: $("fDb").value.trim(), tbl: $("fTbl").value.trim()
+    db: $("fDb").value.trim(), tbl: $("fTbl").value.trim(), col: $("fCol").value.trim(),
+    sqlQuery: $("fSqlQuery").value.trim(), fileRead: $("fFileRead").value.trim()
   };
   Array.prototype.forEach.call($("fActions").querySelectorAll("input[type=checkbox]"), function(cb){
     if (cb.checked) f[cb.getAttribute("data-a")] = true;
@@ -577,10 +595,16 @@ function fullCmd(f){
   if (f.delay) c += " --delay=" + f.delay;
   var map = { getBanner:"--banner", getCurrentUser:"--current-user", getCurrentDb:"--current-db", isDba:"--is-dba",
               getUsers:"--users", getPasswordHashes:"--passwords", getPrivileges:"--privileges",
-              getDbs:"--dbs", getTables:"--tables", getColumns:"--columns", dumpTable:"--dump" };
+              getDbs:"--dbs", getTables:"--tables", getColumns:"--columns", dumpTable:"--dump",
+              getAll:"--all", getHostname:"--hostname", getRoles:"--roles", getSchema:"--schema", getCount:"--count",
+              dumpAll:"--dump-all", getComments:"--comments", getStatements:"--statements", getProcs:"--procedures",
+              commonTables:"--common-tables", commonColumns:"--common-columns", excludeSysDbs:"--exclude-sysdbs" };
   Object.keys(map).forEach(function(k){ if (f[k]) c += " " + map[k]; });
   if (f.db) c += " -D " + f.db;
   if (f.tbl) c += " -T " + f.tbl;
+  if (f.col) c += " -C " + f.col;
+  if (f.sqlQuery) c += ' --sql-query="' + f.sqlQuery + '"';
+  if (f.fileRead) c += ' --file-read="' + f.fileRead + '"';
   return c;
 }
 function equivalentCmd(){
@@ -656,7 +680,7 @@ function finishScan(data, lines, aborted){
     if (entry.type_name === "TECHNIQUES") injections = entry.value || [];
     if (entry.type_name === "DBMS_FINGERPRINT") fingerprint = entry.value;
     if (entry.type_name === "BANNER") banner = entry.value;
-    if (["CURRENT_USER","CURRENT_DB","IS_DBA","DBS","TABLES","COLUMNS","USERS","PASSWORDS","PRIVILEGES","DUMP_TABLE","HOSTNAME"].indexOf(entry.type_name) >= 0)
+    if (["CURRENT_USER","CURRENT_DB","IS_DBA","DBS","TABLES","COLUMNS","USERS","PASSWORDS","PRIVILEGES","DUMP_TABLE","HOSTNAME","ROLES","SCHEMA","COUNT","COMMON_TABLES","COMMON_COLUMNS","SQL_QUERY","FILE_READ","STATEMENTS","PROCEDURES"].indexOf(entry.type_name) >= 0)
       extracted[entry.type_name] = entry.value;
   });
   if (banner && !extracted.BANNER) extracted.BANNER = banner;
@@ -779,7 +803,11 @@ function renderExtracted(x){
     ["BANNER","Server Banner"],["CURRENT_USER","Current User"],["CURRENT_DB","Current Database"],
     ["IS_DBA","Current User Is DBA"],["HOSTNAME","Hostname"],["DBS","Databases"],
     ["TABLES","Tables"],["COLUMNS","Columns"],["DUMP_TABLE","Dumped Table"],
-    ["USERS","Database Users"],["PASSWORDS","Password Hashes"],["PRIVILEGES","User Privileges"]
+    ["USERS","Database Users"],["PASSWORDS","Password Hashes"],["PRIVILEGES","User Privileges"],
+    ["ROLES","User Roles"],["SCHEMA","Database Schema"],["COUNT","Row Counts"],
+    ["COMMON_TABLES","Common Tables Found"],["COMMON_COLUMNS","Common Columns Found"],
+    ["SQL_QUERY","Custom SQL Query Result"],["FILE_READ","File Read Result"],
+    ["STATEMENTS","Stored Statements"],["PROCEDURES","Stored Procedures"]
   ];
   var html = "";
   order.forEach(function(pair){

@@ -238,13 +238,22 @@ class Handler(BaseHTTPRequestHandler):
                     options["delay"] = float(full["delay"])
                 for key in ("getBanner", "getCurrentUser", "getCurrentDb", "isDba",
                             "getUsers", "getPasswordHashes", "getPrivileges",
-                            "getDbs", "getTables", "getColumns", "dumpTable"):
+                            "getDbs", "getTables", "getColumns", "dumpTable",
+                            "getAll", "getHostname", "getRoles", "getSchema", "getCount",
+                            "dumpAll", "getComments", "getStatements", "getProcs",
+                            "commonTables", "commonColumns", "excludeSysDbs"):
                     if full.get(key):
                         options[key] = True
                 if full.get("db"):
                     options["db"] = str(full["db"])
                 if full.get("tbl"):
                     options["tbl"] = str(full["tbl"])
+                if full.get("col"):
+                    options["col"] = str(full["col"])
+                if full.get("sqlQuery"):
+                    options["sqlQuery"] = str(full["sqlQuery"])
+                if full.get("fileRead"):
+                    options["fileRead"] = str(full["fileRead"])
             # sqlmap does not read proxy env vars itself. On networks whose only
             # egress is a proxy (e.g. this VM), direct TLS to outside targets is
             # cut — so forward the environment's proxy for non-local targets.

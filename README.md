@@ -33,7 +33,7 @@ The three preset modes are shortcuts. **Full Engine** mode exposes the complete 
 
 - **Parameter locations:** URL query, POST data, and Cookie header.
 - **Depth:** level 1–5, risk 1–3, per-letter technique picker (B/E/U/S/T/Q), threads, request delay, tamper scripts.
-- **Actions after detection:** banner, current user, current database, is-DBA, users, password hashes, privileges, list databases, list tables, list columns, and **dump table rows** — all rendered in the report's Extracted Data section exactly as the engine returns them.
+- **Actions after detection:** banner, current user, current database, hostname, is-DBA, users, password hashes, privileges, roles, list databases, list tables, list columns, full schema, row counts, column comments, stored statements and procedures, brute-force common tables/columns, **dump table rows**, **dump all tables**, plus a **custom SQL query** field and **server file read** — all rendered in the report's Extracted Data section exactly as the engine returns them.
 
 Verified end-to-end against the practice lab: detection → tables → columns → full dump of the `products` table (3 rows) through the UI.
 
