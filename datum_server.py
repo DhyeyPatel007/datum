@@ -243,7 +243,7 @@ class Handler(BaseHTTPRequestHandler):
                             "dumpAll", "getComments", "getStatements", "getProcs",
                             "commonTables", "commonColumns", "excludeSysDbs",
                             "getLinks", "getAudit", "search", "commonFiles", "regRead",
-                            "regWrite", "regDel"):
+                            "regAdd", "regDel"):
                     if full.get(key):
                         options[key] = True
                 if full.get("db"):

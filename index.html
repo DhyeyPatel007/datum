@@ -339,7 +339,7 @@ button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
             <label class="f-chk"><input type="checkbox" data-a="getAudit"> Audit forms for stored XSS</label>
             <label class="f-chk"><input type="checkbox" data-a="commonFiles"> Brute-force common files</label>
             <label class="f-chk"><input type="checkbox" data-a="regRead"> Read a Windows registry value</label>
-            <label class="f-chk"><input type="checkbox" data-a="regWrite"> Write a Windows registry value</label>
+            <label class="f-chk"><input type="checkbox" data-a="regAdd"> Write a Windows registry value</label>
             <label class="f-chk"><input type="checkbox" data-a="regDel"> Delete a Windows registry value</label>
           </div>
           <div class="f-grid" style="margin-top:14px">
@@ -620,7 +620,7 @@ function fullCmd(f){
               dumpAll:"--dump-all", getComments:"--comments", getStatements:"--statements", getProcs:"--procedures",
               commonTables:"--common-tables", commonColumns:"--common-columns", excludeSysDbs:"--exclude-sysdbs",
               getLinks:"--links", getAudit:"--audit", search:"--search", commonFiles:"--common-files", regRead:"--reg-read",
-              regWrite:"--reg-write", regDel:"--reg-del" };
+              regAdd:"--reg-add", regDel:"--reg-del" };
   Object.keys(map).forEach(function(k){ if (f[k]) c += " " + map[k]; });
   if (f.db) c += " -D " + f.db;
   if (f.tbl) c += " -T " + f.tbl;
