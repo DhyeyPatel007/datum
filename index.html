@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DATUM // 01 — Spec-Auditor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-chassis:#DDE3E8; --surface-card:#F4F7F9; --surface-recessed:#CFD7DF; --surface-elevated:#FFFFFF;
+  --ink-primary:#3A0F34; --ink-secondary:#5E3B59; --ink-disabled:#8C7789;
+  --border-strong:#3A0F34; --border-subtle:#B8C2CC;
+  --accent-marigold:#EAAA00; --accent-marigold-hover:#D49A00;
+  --status-pass-bg:#DDF3E4; --status-pass-ink:#0F522B;
+  --status-warn-bg:#FDECC8; --status-warn-ink:#7A4500;
+  --status-fail-bg:#FADBD8; --status-fail-ink:#781515;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:24px; --space-6:32px; --space-7:48px; --space-8:64px;
+  --radius-none:0px; --radius-sm:2px; --shadow-hard:4px 4px 0px #3A0F34;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-chassis);color:var(--ink-primary);font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;line-height:1.6}
+h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:28px;line-height:1.15;letter-spacing:-0.02em}
+h2{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:18px;line-height:1.25;letter-spacing:-0.01em;text-transform:uppercase}
+h3{font-weight:600;font-size:15px;line-height:1.4}
+.label{font-weight:600;font-size:12px;line-height:1.2;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-secondary)}
+.mono{font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.5}
+button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent-marigold);outline-offset:0}
+.frame{max-width:1040px;margin:32px auto;border:2px solid var(--border-strong);background:var(--surface-card)}
+/* header */
+.header{height:56px;border-bottom:2px solid var(--border-strong);display:flex;align-items:stretch}
+.header>div{display:flex;align-items:center;padding:0 20px}
+.header .brand{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;gap:10px;white-space:nowrap}
+.sq{width:10px;height:10px;background:var(--accent-marigold);flex:none}
+.header .steps{flex:1;justify-content:center;gap:6px;border-left:1px solid var(--border-strong);border-right:1px solid var(--border-strong)}
+.step{font-size:11px;font-weight:600;letter-spacing:0.05em;color:var(--ink-secondary);padding:4px 10px;text-transform:uppercase;white-space:nowrap}
+.step.active{background:var(--accent-marigold);color:var(--ink-primary);font-weight:700}
+.header .api{font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap}
+.api .dot{display:inline-block;width:8px;height:8px;margin-right:8px;background:var(--ink-disabled)}
+.api.on .dot{background:#1B6E44}
+/* screens */
+.screen{display:none}
+.screen.show{display:block;animation:swap 120ms ease-out}
+@keyframes swap{from{opacity:0}to{opacity:1}}
+/* screen 1 */
+.spec-grid{display:flex}
+.spec-left{width:280px;flex:none;background:var(--bg-chassis);padding:24px;border-right:1px solid var(--border-strong)}
+.spec-left .big{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:48px;line-height:1}
+.checklist{list-style:none;margin-top:16px}
+.checklist li{padding:10px 0;border-top:1px solid var(--border-subtle);font-size:13.5px}
+.checklist li b{font-family:'JetBrains Mono',monospace;font-weight:500;margin-right:8px}
+.recent{margin-top:32px}
+.recent-item{font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 0;border-top:1px solid var(--border-subtle);word-break:break-all}
+.spec-right{flex:1;padding:32px;min-width:0}
+.band{padding:24px 0;border-top:1px solid var(--border-subtle)}
+.band:first-child{padding-top:0;border-top:none}
+.band-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.band-head .no{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-secondary)}
+.helper{font-size:13.5px;color:var(--ink-secondary);margin-top:10px;max-width:65ch}
+.url-field{height:52px;background:var(--surface-elevated);border:2px solid var(--border-strong);border-radius:var(--radius-sm);display:flex;align-items:center;overflow:hidden}
+.url-field.error{border-color:var(--status-fail-ink)}
+.url-prefix{background:var(--bg-chassis);height:100%;display:flex;align-items:center;padding:0 14px;border-right:1px solid var(--border-strong);font-weight:600;font-size:11px;letter-spacing:0.06em}
+.url-field input{flex:1;border:none;outline:none;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-primary);padding:0 16px;height:100%;min-width:0;background:transparent}
+.url-field input:focus-visible{outline:3px solid var(--accent-marigold);outline-offset:-3px}
+.lab-link{margin-top:10px;font-size:13px}
+.lab-link button{background:none;border:none;color:var(--ink-primary);font-weight:600;text-decoration:underline;font-size:13px;padding:0}
+.params-bar{margin-top:8px;font-size:13px;color:var(--ink-secondary)}
+.chip{display:inline-block;background:var(--surface-recessed);border:1px solid var(--border-strong);padding:2px 8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-primary);margin:2px 4px 2px 0}
+.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mode-card{position:relative;border:2px solid var(--border-strong);background:var(--surface-elevated);padding:16px;padding-top:22px;cursor:pointer;text-align:left;width:100%}
+.mode-card .ribbon{position:absolute;top:0;left:0;right:0;height:6px;background:transparent}
+.mode-card.selected{background:var(--surface-card);box-shadow:var(--shadow-hard)}
+.mode-card.selected .ribbon{background:var(--accent-marigold)}
+.mode-card .sel-pill{position:absolute;top:12px;right:12px;background:var(--accent-marigold);color:var(--ink-primary);font-size:11px;font-weight:700;padding:2px 7px;display:none}
+.mode-card.selected .sel-pill{display:block}
+.mode-card h3{font-size:15px;margin-bottom:2px}
+.mode-card .sub{font-size:12.5px;color:var(--ink-secondary);font-weight:600}
+.mode-card p{font-size:13.5px;margin-top:8px;line-height:1.55}
+.mode-card .reqs{margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-secondary)}
+.auth-gate{background:var(--bg-chassis);border:2px solid var(--border-strong);padding:16px 20px;display:flex;gap:14px;align-items:flex-start}
+.auth-gate.attention{outline:3px solid var(--accent-marigold)}
+.auth-box{width:24px;height:24px;flex:none;border:2px solid var(--border-strong);background:#fff;border-radius:2px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.auth-box svg{display:none}
+.auth-gate.checked .auth-box{background:var(--accent-marigold)}
+.auth-gate.checked .auth-box svg{display:block}
+.auth-label{font-weight:600;font-size:14px;line-height:1.5;cursor:pointer}
+.auth-note{display:none;margin-top:10px;font-size:13.5px;font-weight:600}
+.auth-note.show{display:block}
+.launch{margin-top:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.btn-primary{background:var(--accent-marigold);color:var(--ink-primary);border:2px solid var(--border-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-hard);font-weight:700;font-size:15px;padding:13px 28px;transition:background 100ms linear,transform 80ms ease-out,box-shadow 80ms ease-out}
+.btn-primary:hover:not(:disabled){background:var(--accent-marigold-hover)}
+.btn-primary:active:not(:disabled){transform:translate(2px,2px);box-shadow:2px 2px 0px #3A0F34}
+.btn-primary:disabled{background:var(--surface-recessed);color:var(--ink-disabled);box-shadow:none;cursor:not-allowed;border-color:var(--ink-disabled)}
+.btn-flat{background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:6px 12px;font-size:12.5px;font-weight:600}
+.btn-flat:hover{background:var(--surface-recessed)}
+.err-note{display:none;margin-top:10px;font-size:13.5px;color:var(--status-fail-ink);font-weight:600}
+.err-note.show{display:block}
+/* screen 2 */
+.summary-strip{background:var(--ink-primary);color:var(--surface-card);padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.summary-strip .u{font-family:'JetBrains Mono',monospace;font-size:14px;word-break:break-all}
+.mode-badge{background:var(--accent-marigold);color:var(--ink-primary);font-weight:700;font-size:11.5px;padding:3px 9px;text-transform:uppercase;letter-spacing:0.05em}
+.summary-strip .right{margin-left:auto;display:flex;align-items:center;gap:16px}
+.timer{font-family:'JetBrains Mono',monospace;font-size:14px}
+.btn-abort{border:1px solid var(--surface-card);background:transparent;color:var(--surface-card);padding:7px 14px;font-weight:600;font-size:13px;border-radius:var(--radius-sm)}
+.btn-abort:hover{background:var(--status-fail-ink)}
+.telemetry{padding:32px}
+.stage{height:64px;border:1px solid var(--border-strong);border-bottom:none;display:flex;align-items:stretch;background:var(--surface-card)}
+.stage:last-of-type{border-bottom:1px solid var(--border-strong)}
+.stage.queued{background:var(--bg-chassis);color:var(--ink-secondary)}
+.stage.active{background:#FFFFFF;border-left:5px solid var(--accent-marigold);position:relative}
+.stage .idx{width:56px;flex:none;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:500;border-right:1px solid var(--border-subtle)}
+.stage .main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 16px;min-width:0}
+.stage .name{font-weight:600;font-size:15px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage .sub{font-size:13px;color:var(--ink-secondary);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage .dur{width:80px;flex:none;display:flex;align-items:center;justify-content:flex-end;font-family:'JetBrains Mono',monospace;font-size:12px;padding-right:12px}
+.stage .pillw{width:120px;flex:none;display:flex;align-items:center;justify-content:center}
+.pill{font-size:11px;font-weight:600;letter-spacing:0.05em;padding:3px 10px;text-transform:uppercase}
+.pill.queued{background:var(--surface-recessed);color:var(--ink-secondary)}
+.pill.active{background:var(--accent-marigold);color:var(--ink-primary);font-weight:700}
+.pill.complete{background:var(--status-pass-bg);color:var(--status-pass-ink)}
+.pill.failed{background:var(--status-fail-bg);color:var(--status-fail-ink)}
+.stagebar{height:4px;background:var(--accent-marigold);width:0;transition:width 300ms cubic-bezier(0.22,1,0.36,1)}
+.drawer{margin-top:24px}
+.drawer-bar{height:44px;background:var(--bg-chassis);border:1px solid var(--border-strong);padding:0 16px;display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left}
+.drawer-bar .t{font-weight:600;font-size:12px;letter-spacing:0.06em;text-transform:uppercase}
+.drawer-body{display:none;padding:16px;background:var(--surface-card);border:1px solid var(--border-strong);border-top:none}
+.drawer.open .drawer-body{display:block;animation:swap 180ms cubic-bezier(0.22,1,0.36,1)}
+.cmd-box{font-family:'JetBrains Mono',monospace;font-size:13px;word-break:break-all;line-height:1.6}
+.glossary{margin-top:12px;border-top:1px solid var(--border-subtle)}
+.glossary div{padding:7px 0;border-bottom:1px solid var(--border-subtle);font-size:13.5px}
+.glossary .f{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500}
+.log-box{height:260px;overflow-y:auto;background:var(--surface-recessed);border:1px solid var(--border-strong);padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6}
+.log-box .ln{color:var(--ink-secondary);display:inline-block;width:44px;flex:none}
+.log-line{display:flex;gap:8px}
+.log-line .lt{color:var(--ink-secondary);flex:none}
+.log-line .lm{color:var(--ink-primary);word-break:break-word}
+.log-line.warn .lm{color:var(--status-warn-ink);font-weight:600}
+.log-line.err .lm{color:var(--status-fail-ink);font-weight:600}
+/* screen 3 */
+.verdict{padding:28px 32px;border-bottom:2px solid var(--border-strong);display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+.verdict.fail{background:var(--status-fail-bg)} .verdict.pass{background:var(--status-pass-bg)} .verdict.warn{background:var(--status-warn-bg)}
+.stamp{color:#fff;font-weight:700;font-size:13px;letter-spacing:0.04em;padding:10px 14px;line-height:1.45;max-width:300px;text-transform:uppercase}
+.stamp.fail{background:var(--status-fail-ink)} .stamp.pass{background:var(--status-pass-ink)} .stamp.warn{background:var(--status-warn-ink)}
+.verdict .head{flex:1;min-width:260px}
+.verdict .head h1{font-size:24px}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;min-width:250px}
+.meta-grid .k{font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-secondary)}
+.meta-grid .v{font-family:'JetBrains Mono',monospace;font-size:12.5px;word-break:break-all}
+.findings{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:2px solid var(--border-strong)}
+.findings>div{padding:20px 24px;border-right:1px solid var(--border-subtle)}
+.findings>div:last-child{border-right:none}
+.findings .val{font-weight:600;font-size:15px;margin-top:6px;word-break:break-word}
+.split{display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid var(--border-strong)}
+.split>div{padding:24px 32px}
+.split>div:first-child{border-right:1px solid var(--border-subtle)}
+.evidence-box{background:var(--surface-recessed);border:1px solid var(--border-strong);padding:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;word-break:break-word;white-space:pre-wrap;margin-top:12px}
+.annotation{margin-top:12px;font-size:13.5px;border-left:4px solid var(--accent-marigold);padding:4px 0 4px 12px}
+.remediation{padding:32px}
+.lang-tabs{display:flex;gap:0;margin:16px 0 0;border:1px solid var(--border-strong);width:max-content;max-width:100%;flex-wrap:wrap}
+.lang-tabs button{border:none;background:var(--surface-card);padding:8px 14px;font-weight:600;font-size:13px;border-right:1px solid var(--border-subtle)}
+.lang-tabs button:last-child{border-right:none}
+.lang-tabs button.sel{background:var(--accent-marigold);color:var(--ink-primary)}
+.code-split{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border-strong);border-top:none}
+.code-panel{min-width:0}
+.code-panel .ch{padding:10px 16px;font-weight:700;font-size:12px;letter-spacing:0.05em;text-transform:uppercase}
+.code-panel.bad .ch{background:var(--status-fail-bg);color:var(--status-fail-ink)}
+.code-panel.good .ch{background:var(--status-pass-bg);color:var(--status-pass-ink)}
+.code-panel pre{padding:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-word;background:var(--surface-elevated);min-height:110px}
+.code-panel.bad{border-right:1px solid var(--border-strong)}
+.schematic{margin-top:16px;border:1px solid var(--border-strong);background:var(--surface-card);padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12.5px;text-align:center}
+.report-actions{padding:0 32px 32px;display:flex;gap:12px;flex-wrap:wrap}
+.foot{padding:14px 24px;border-top:2px solid var(--border-strong);font-size:12px;color:var(--ink-secondary);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+@media (max-width:768px){
+  .frame{margin:0;border-left:none;border-right:none}
+  .header .steps{display:none}
+  .spec-grid{flex-direction:column}
+  .spec-left{width:100%;border-right:none;border-bottom:1px solid var(--border-strong);padding:16px}
+  .spec-left .big{font-size:36px}
+  .header .api{font-size:10.5px;padding:0 10px}
+  .header .brand{font-size:15px;padding:0 12px}
+  .spec-right{padding:20px 16px}
+  .mode-grid{grid-template-columns:1fr}
+  .telemetry{padding:16px}
+  .stage .dur{display:none}
+  .findings{grid-template-columns:1fr}
+  .findings>div{border-right:none;border-bottom:1px solid var(--border-subtle)}
+  .split{grid-template-columns:1fr}
+  .split>div{padding:20px 16px}
+  .split>div:first-child{border-right:none;border-bottom:1px solid var(--border-subtle)}
+  .code-split{grid-template-columns:1fr}
+  .code-panel.bad{border-right:none;border-bottom:1px solid var(--border-strong)}
+  .remediation{padding:20px 16px}
+  .verdict{padding:20px 16px}
+  .report-actions{padding:0 16px 20px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="header">
+    <div class="brand"><span class="sq"></span>DATUM // 01</div>
+    <div class="steps" aria-label="Progress">
+      <span class="step active" id="crumb1">01 Target Specification</span>
+      <span class="step" id="crumb2">02 Telemetry &amp; Probe</span>
+      <span class="step" id="crumb3">03 Calibration Verdict</span>
+    </div>
+    <div class="api" id="apiStatus"><span class="dot"></span>API: CHECKING 127.0.0.1:8775</div>
+  </div>
+
+  <!-- SCREEN 1 -->
+  <section class="screen show" id="screen1" aria-label="Target specification">
+    <div class="spec-grid">
+      <aside class="spec-left">
+        <div><span class="big" style="display:block">01</span><h2 style="margin-top:10px">Pre-Test Protocol</h2></div>
+        <ul class="checklist">
+          <li><b>1.</b>Verify endpoint ownership</li>
+          <li><b>2.</b>Select probe depth</li>
+          <li><b>3.</b>Confirm written authorization</li>
+        </ul>
+        <div class="recent">
+          <div class="label">Recent Local Audits</div>
+          <div id="recentList"><div class="recent-item" style="color:var(--ink-secondary)">No audits on this device yet.</div></div>
+        </div>
+      </aside>
+      <div class="spec-right">
+        <div class="band">
+          <div class="band-head"><span class="no">1.1</span><h3>Target Endpoint</h3></div>
+          <div class="url-field" id="urlField">
+            <span class="url-prefix">ENDPOINT</span>
+            <input id="urlInput" type="text" spellcheck="false" autocomplete="off" placeholder="https://staging.example.com/catalog?id=12" aria-label="Target URL">
+          </div>
+          <div class="params-bar" id="paramsBar">No query parameters detected yet. Enter a URL containing a query string (e.g., ?item=42).</div>
+          <p class="helper">Enter the full web address you want to test, including at least one query parameter (such as ?id=12).</p>
+          <p class="lab-link">No target handy? Use the built-in local practice lab:
+            <button id="labVuln" type="button">Vulnerable practice page</button> ·
+            <button id="labSafe" type="button">Safe practice page</button>
+          </p>
+          <div class="err-note" id="urlError">Enter a complete web address starting with http:// or https:// and at least one query parameter (for example: https://staging.example.com/catalog?id=12).</div>
+        </div>
+
+        <div class="band">
+          <div class="band-head"><span class="no">1.2</span><h3>Inspection Depth</h3></div>
+          <div class="mode-grid" role="radiogroup" aria-label="Inspection depth">
+            <button class="mode-card" type="button" data-mode="quick" role="radio" aria-checked="false">
+              <span class="ribbon"></span><span class="sel-pill">[ SELECTED ]</span>
+              <h3>Quick Check</h3><div class="sub">~30–60 seconds • Low traffic</div>
+              <p>Sends a light set of syntax probes to check for obvious database error messages or unstable parameter handling.</p>
+              <div class="reqs">Estimated requests: ~45–90 HTTP requests</div>
+            </button>
+            <button class="mode-card selected" type="button" data-mode="confirm" role="radio" aria-checked="true">
+              <span class="ribbon"></span><span class="sel-pill">[ SELECTED ]</span>
+              <h3>Confirm It</h3><div class="sub">~2–4 minutes • Standard verification</div>
+              <p>Compares page responses across true and false conditions to verify whether the database is interpreting input as commands.</p>
+              <div class="reqs">Estimated requests: ~120–250 HTTP requests</div>
+            </button>
+            <button class="mode-card" type="button" data-mode="deep" role="radio" aria-checked="false">
+              <span class="ribbon"></span><span class="sel-pill">[ SELECTED ]</span>
+              <h3>Deep</h3><div class="sub">~5–10 minutes • Thorough analysis</div>
+              <p>Includes time-delay checks and deeper header/cookie parameter inspection for subtle flaws.</p>
+              <div class="reqs">Estimated requests: ~300+ HTTP requests</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="band">
+          <div class="band-head"><span class="no">1.3</span><h3>Authorization &amp; Launch</h3></div>
+          <div class="auth-gate" id="authGate">
+            <button class="auth-box" id="authBox" type="button" role="checkbox" aria-checked="false" aria-label="Authorization confirmation">
+              <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7.5 L5.5 11 L12 3" fill="none" stroke="#3A0F34" stroke-width="2"/></svg>
+            </button>
+            <label class="auth-label" id="authLabel">I confirm that I own this target system or hold explicit written authorization from the system owner to perform automated input-validation testing.</label>
+          </div>
+          <div class="auth-note" id="authNote">Written authorization confirmation is required before initializing the probe.</div>
+          <div class="launch">
+            <button class="btn-primary" id="runBtn" type="button" disabled>Run Inspection</button>
+            <span class="helper" style="margin-top:0" id="launchHint">Please confirm target ownership or written authorization above to enable the inspection button.</span>
+          </div>
+          <div class="err-note" id="startError"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREEN 2 -->
+  <section class="screen" id="screen2" aria-label="Live scan telemetry">
+    <div class="summary-strip">
+      <span class="u" id="sumUrl">—</span><span class="mode-badge" id="sumMode">Confirm It</span>
+      <div class="right"><span class="timer" id="timer">00:00</span>
+      <button class="btn-abort" id="abortBtn" type="button">Abort Inspection</button></div>
+    </div>
+    <div class="telemetry">
+      <div aria-live="polite" id="liveRegion" style="position:absolute;left:-9999px"></div>
+      <div id="stages"></div>
+      <div class="drawer" id="cmdDrawer">
+        <button class="drawer-bar" type="button" data-drawer="cmdDrawer">
+          <span class="t">&gt;_ Equivalent CLI Command (Read-Only)</span>
+          <span><span class="btn-flat" style="pointer-events:none">Copy Command</span> <span aria-hidden="true">▾</span></span>
+        </button>
+        <div class="drawer-body">
+          <div class="cmd-box" id="cmdText">—</div>
+          <button class="btn-flat" id="copyCmd" type="button" style="margin-top:12px">Copy Command</button>
+          <p class="helper">This is the exact sqlmap command running behind the scenes. You can copy it to run directly in your own terminal.</p>
+          <div class="glossary" id="cmdGlossary"></div>
+        </div>
+      </div>
+      <div class="drawer" id="logDrawer">
+        <button class="drawer-bar" type="button" data-drawer="logDrawer">
+          <span class="t" id="logTitle">Raw Engine Telemetry (0 lines) — Click to Inspect</span><span aria-hidden="true">▾</span>
+        </button>
+        <div class="drawer-body" style="padding:0;background:transparent;border:none">
+          <div class="log-box" id="logBox" style="border-top:none"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREEN 3 -->
+  <section class="screen" id="screen3" aria-label="Calibration verdict">
+    <div class="verdict fail" id="verdictBanner">
+      <div class="stamp fail" id="verdictStamp">VERDICT: INJECTABLE PARAMETER DETECTED</div>
+      <div class="head"><h1 id="verdictHeadline">The parameter 'id' accepts unfiltered database commands.</h1>
+      <p id="verdictSummary" style="margin-top:8px;max-width:65ch"></p></div>
+      <div class="meta-grid" id="metaGrid"></div>
+    </div>
+    <div class="findings">
+      <div><div class="label">Tested Parameter</div><div class="val mono" id="fParam">—</div></div>
+      <div><div class="label">Verification Technique</div><div class="val" id="fTechnique">—</div></div>
+      <div><div class="label">Identified Database Engine</div><div class="val" id="fDbms">—</div></div>
+    </div>
+    <div class="split">
+      <div>
+        <h3>Evidence</h3>
+        <div class="evidence-box" id="evidenceBox">—</div>
+        <button class="btn-flat" id="copyEvidence" type="button" style="margin-top:12px;background:var(--accent-marigold);font-weight:700">Copy Evidence</button>
+        <div class="annotation" id="evidenceNote"></div>
+      </div>
+      <div>
+        <h3>What This Means in Plain Language</h3>
+        <p id="plainText" style="margin-top:12px"></p>
+      </div>
+    </div>
+    <div class="remediation" id="remediationBlock">
+      <h2>Remediation &amp; Fix Guidance</h2>
+      <p class="helper" style="margin-top:6px">Keep the query structure fixed. Send user input to the database separately, as data — never as part of the command.</p>
+      <div class="lang-tabs" id="langTabs" role="tablist"></div>
+      <div class="code-split">
+        <div class="code-panel bad"><div class="ch">Vulnerable Code Pattern</div><pre id="codeBad"></pre></div>
+        <div class="code-panel good"><div class="ch">Parameterized Query (Safe)</div><pre id="codeGood"></pre>
+          <div style="padding:0 16px 16px;background:var(--surface-elevated)"><button class="btn-flat" id="copyFix" type="button" style="background:var(--accent-marigold);font-weight:700">Copy Safe Snippet</button></div>
+        </div>
+      </div>
+      <div class="schematic">[ Query Template ] + [ Separate Data Parameter ] ──&gt; [ Database Engine ]</div>
+    </div>
+    <div class="report-actions">
+      <button class="btn-primary" id="newScanBtn" type="button">New Inspection</button>
+      <button class="btn-flat" id="printBtn" type="button" style="padding:12px 20px;font-size:14px">Print / Save Report</button>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>DATUM // 01 · SPEC-AUDITOR // REV 4.2 · Engine: sqlmap (open source, GPLv2) via its local REST API</span>
+    <span>Authorised targets only. Runs locally — no scan data leaves this device.</span>
+  </div>
+</div>
+<script>
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var MODES = {
+  quick:   { name:"Quick Check", flags:{level:1,risk:1,technique:"BEU",smart:true},  cmd:'--batch --level=1 --risk=1 --smart' },
+  confirm: { name:"Confirm It",  flags:{level:2,risk:1,technique:"BEU"},             cmd:'--batch --level=2 --risk=1 --technique=BEU' },
+  deep:    { name:"Deep",        flags:{level:3,risk:2,technique:"BEUSTQ"},          cmd:'--batch --level=3 --risk=2 --technique=BEUSTQ' }
+};
+var GLOSSARY = [
+  ["--batch","Runs automatically without asking interactive terminal questions"],
+  ["--level","How many payload families and parameter locations are tested (1–5)"],
+  ["--risk","How aggressive the payloads are allowed to be (1–3)"],
+  ["--technique","Which verification methods run: B boolean, E error, U union, S stacked, T time, Q inline query"],
+  ["--smart","Runs a quick heuristic first and skips parameters that look unpromising"]
+];
+var STAGES = [
+  { name:"Checking connection & baseline response", test:/connect|baseline|checking the content|target URL content/i },
+  { name:"Running heuristic input probe",           test:/heuristic/i },
+  { name:"Testing boolean-based response changes",  test:/boolean-based|AND boolean|OR boolean/i },
+  { name:"Testing time-delay sensitivity",          test:/time-based|time delay|SLEEP|WAITFOR/i },
+  { name:"Fingerprinting database engine",          test:/fingerprint|back-end DBMS is|the back-end DBMS/i }
+];
+var state = { mode:"confirm", authed:false, valid:false, taskid:null, startedAt:0, timerInt:null, pollInt:null,
+              stageIdx:-1, stageStart:{}, stageDur:{}, logCount:0, finished:false, signedAt:null, url:"", paramNames:[] };
+
+function parseParams(){
+  var v = $("urlInput").value.trim(), bar = $("paramsBar");
+  state.url = v; state.paramNames = [];
+  var ok = false;
+  try {
+    var u = new URL(v);
+    if ((u.protocol === "http:" || u.protocol === "https:") && u.search.length > 1) {
+      u.searchParams.forEach(function(val, key){ state.paramNames.push(key); });
+      ok = state.paramNames.length > 0;
+    }
+  } catch(e) { ok = false; }
+  if (state.paramNames.length) {
+    bar.innerHTML = "Detected Parameters: " + state.paramNames.map(function(p){
+      var val = ""; try { val = new URL(v).searchParams.get(p); } catch(e){}
+      return '<span class="chip">' + p + " = " + (val || "") + "</span>";
+    }).join("");
+  } else {
+    bar.textContent = "No query parameters detected yet. Enter a URL containing a query string (e.g., ?item=42).";
+  }
+  state.valid = ok;
+  $("urlError").classList.toggle("show", v.length > 3 && !ok);
+  $("urlField").classList.toggle("error", v.length > 3 && !ok);
+  refreshLaunch();
+}
+function refreshLaunch(){
+  var ready = state.valid && state.authed;
+  $("runBtn").disabled = !ready;
+  $("launchHint").textContent = !state.authed ?
+    "Please confirm target ownership or written authorization above to enable the inspection button." :
+    (!state.valid ? "Enter a valid target endpoint above to enable the inspection button." : "Ready. The inspection runs locally against the target you specified.");
+}
+function setScreen(n){
+  [1,2,3].forEach(function(i){
+    $("screen"+i).classList.toggle("show", i === n);
+    $("crumb"+i).classList.toggle("active", i === n);
+  });
+  window.scrollTo(0,0);
+}
+function buildStages(){
+  $("stages").innerHTML = STAGES.map(function(s, i){
+    return '<div class="stage queued" id="stage' + i + '">' +
+      '<div class="idx">' + ("0"+(i+1)) + '</div>' +
+      '<div class="main"><div class="name">' + ("0"+(i+1)) + " // " + s.name + '</div>' +
+      '<div class="sub" id="stageSub' + i + '">Queued</div><div class="stagebar" id="stageBar' + i + '"></div></div>' +
+      '<div class="dur" id="stageDur' + i + '">—</div>' +
+      '<div class="pillw"><span class="pill queued" id="stagePill' + i + '">Queued</span></div></div>';
+  }).join("");
+}
+function setStage(i, status, sub){
+  var row = $("stage"+i); if (!row) return;
+  row.className = "stage " + (status === "active" ? "active" : status === "complete" ? "" : "queued");
+  var pill = $("stagePill"+i);
+  pill.className = "pill " + status;
+  pill.textContent = status === "active" ? "ACTIVE" : status === "complete" ? "COMPLETE" : status === "failed" ? "CHECK LOG" : "QUEUED";
+  if (sub) $("stageSub"+i).textContent = sub;
+  else if (status === "complete" && $("stageSub"+i).textContent === "Queued") $("stageSub"+i).textContent = "Stage complete";
+  $("stageBar"+i).style.width = status === "complete" ? "100%" : status === "active" ? "55%" : "0";
+  if (status === "active" && state.stageStart[i] === undefined) state.stageStart[i] = Date.now();
+  if (status === "complete" && state.stageStart[i] !== undefined && state.stageDur[i] === undefined) {
+    state.stageDur[i] = ((Date.now() - state.stageStart[i]) / 1000).toFixed(1) + "s";
+    $("stageDur"+i).textContent = state.stageDur[i];
+  }
+}
+function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function renderLog(lines){
+  state.logCount = lines.length;
+  $("logTitle").textContent = "Raw Engine Telemetry (" + lines.length + " lines) — Click to Inspect";
+  $("logBox").innerHTML = lines.map(function(l, i){
+    var cls = l.level === "WARNING" ? "warn" : (l.level === "ERROR" || l.level === "CRITICAL") ? "err" : "";
+    return '<div class="log-line ' + cls + '"><span class="ln">' + (i+1) + '</span><span class="lt">' + esc(l.time) + '</span><span class="lm">' + esc(l.message) + "</span></div>";
+  }).join("");
+  var box = $("logBox"); box.scrollTop = box.scrollHeight;
+}
+function inferStage(lines){
+  var best = state.stageIdx;
+  lines.forEach(function(l){
+    STAGES.forEach(function(s, i){ if (s.test.test(l.message) && i > best) best = i; });
+  });
+  return best;
+}
+function fmtTime(ms){
+  var s = Math.floor(ms/1000);
+  return ("0"+Math.floor(s/60)).slice(-2) + ":" + ("0"+(s%60)).slice(-2);
+}
+function startTimer(){
+  state.startedAt = Date.now();
+  clearInterval(state.timerInt);
+  state.timerInt = setInterval(function(){ $("timer").textContent = fmtTime(Date.now() - state.startedAt); }, 500);
+}
+function equivalentCmd(){
+  return 'sqlmap -u "' + state.url + '" ' + MODES[state.mode].cmd;
+}
+function saveRecent(verdict){
+  try {
+    var list = JSON.parse(localStorage.getItem("datum_audits") || "[]");
+    list.unshift({ url: state.url, verdict: verdict, at: new Date().toISOString() });
+    localStorage.setItem("datum_audits", JSON.stringify(list.slice(0,5)));
+    renderRecent();
+  } catch(e){}
+}
+function renderRecent(){
+  try {
+    var list = JSON.parse(localStorage.getItem("datum_audits") || "[]");
+    if (!list.length) return;
+    $("recentList").innerHTML = list.map(function(r){
+      return '<div class="recent-item">' + esc(r.at.slice(0,10)) + " · " + esc(r.verdict) + "<br>" + esc(r.url) + "</div>";
+    }).join("");
+  } catch(e){}
+}
+function health(){
+  fetch("/datum/health").then(function(r){ return r.json(); }).then(function(j){
+    var el = $("apiStatus");
+    el.classList.toggle("on", !!j.engine);
+    el.innerHTML = '<span class="dot"></span>API: ' + (j.engine ? "CONNECTED" : "STANDBY (STARTS ON LAUNCH)") + " 127.0.0.1:8775";
+  }).catch(function(){
+    $("apiStatus").innerHTML = '<span class="dot"></span>API: SERVER UNREACHABLE';
+  });
+}
+
+var REMEDIATION = {
+  "Node.js / pg": {
+    bad:  "const q = \"SELECT * FROM products WHERE id = '\" + req.query.id + \"'\";\ndb.query(q);",
+    good: "const q = 'SELECT * FROM products WHERE id = $1';\ndb.query(q, [req.query.id]);"
+  },
+  "Python / psycopg2": {
+    bad:  "q = \"SELECT * FROM products WHERE id = '%s'\" % request.args['id']\ncur.execute(q)",
+    good: "q = 'SELECT * FROM products WHERE id = %s'\ncur.execute(q, (request.args['id'],))"
+  },
+  "PHP / PDO": {
+    bad:  "$q = \"SELECT * FROM products WHERE id = '\" . $_GET['id'] . \"'\";\n$db->query($q);",
+    good: "$stmt = $db->prepare('SELECT * FROM products WHERE id = :id');\n$stmt->execute(['id' => $_GET['id']]);"
+  },
+  "Go / database/sql": {
+    bad:  "q := \"SELECT * FROM products WHERE id = '\" + r.URL.Query().Get(\"id\") + \"'\"\ndb.Query(q)",
+    good: "db.Query(\"SELECT * FROM products WHERE id = ?\", r.URL.Query().Get(\"id\"))"
+  }
+};
+var currentLang = "Node.js / pg";
+function renderRemediation(){
+  $("codeBad").textContent = REMEDIATION[currentLang].bad;
+  $("codeGood").textContent = REMEDIATION[currentLang].good;
+  $("langTabs").innerHTML = Object.keys(REMEDIATION).map(function(k){
+    return '<button type="button" role="tab" class="' + (k === currentLang ? "sel" : "") + '" data-lang="' + k + '">' + k + "</button>";
+  }).join("");
+  Array.prototype.forEach.call($("langTabs").children, function(b){
+    b.addEventListener("click", function(){ currentLang = b.getAttribute("data-lang"); renderRemediation(); });
+  });
+}
+
+function finishScan(data, lines, aborted){
+  if (state.finished) return;
+  state.finished = true;
+  clearInterval(state.pollInt); clearInterval(state.timerInt);
+  for (var i = 0; i < STAGES.length; i++) if (i <= state.stageIdx) setStage(i, "complete");
+  var duration = fmtTime(Date.now() - state.startedAt);
+  var injections = [], fingerprint = "", banner = "";
+  (data.data || []).forEach(function(entry){
+    if (entry.type_name === "TECHNIQUES") injections = entry.value || [];
+    if (entry.type_name === "DBMS_FINGERPRINT") fingerprint = entry.value;
+    if (entry.type_name === "BANNER") banner = entry.value;
+  });
+  /* WAF verdict only on sqlmap's actual detection messages (CRITICAL "heuristics detected
+     that the target is protected..."), never on its routine INFO line "checking if the target
+     is protected by some kind of WAF/IPS" — that line appears in every run, including clean ones. */
+  var waf = lines.some(function(l){
+    return /heuristics detected that the target is protected/i.test(l.message) ||
+           (l.level === "CRITICAL" && /WAF\/IPS/i.test(l.message)) ||
+           /HTTP error code detected during run: (403|429)/i.test(l.message);
+  });
+  var inj = injections.length ? injections[0] : null;
+  var verdict, cls;
+  if (aborted) { verdict = "INCONCLUSIVE — STOPPED"; cls = "warn"; }
+  else if (inj) { verdict = "INJECTABLE"; cls = "fail"; }
+  else if (waf) { verdict = "WAF BLOCKED"; cls = "warn"; }
+  else { verdict = "NOT INJECTABLE"; cls = "pass"; }
+
+  var bannerEl = $("verdictBanner");
+  bannerEl.className = "verdict " + cls;
+  var stamp = $("verdictStamp"); stamp.className = "stamp " + cls;
+  var param = inj ? inj.parameter : (state.paramNames[0] || "—");
+  var place = inj ? (inj.place || "GET") : "GET";
+  var techniques = [], payload = "", title = "";
+  if (inj && inj.data) {
+    inj.data.forEach(function(d){ techniques.push(d.technique); if (!payload && d.payload) { payload = d.payload; title = d.title || ""; } });
+  }
+  var dbms = "";
+  if (inj && inj.dbms) dbms = Array.isArray(inj.dbms) ? inj.dbms.join(", ") : inj.dbms;
+  if (!dbms && fingerprint) dbms = Array.isArray(fingerprint) ? fingerprint.join(", ") : String(fingerprint);
+  if (banner) dbms = (dbms ? dbms + " — " : "") + String(banner);
+
+  if (cls === "fail") {
+    stamp.textContent = "VERDICT: INJECTABLE PARAMETER DETECTED";
+    $("verdictHeadline").textContent = "The parameter '" + param + "' accepts unfiltered database commands.";
+    $("verdictSummary").textContent = "The '" + param + "' parameter accepts raw database instructions. Because user input is combined directly into the database query without separation, an external user could read or modify data they shouldn't have access to.";
+    $("plainText").textContent = "During the inspection, the page answered differently when the test conditions were true versus false" + (techniques.join(" ").toLowerCase().indexOf("time") >= 0 ? ", and it waited measurably longer when asked to pause" : "") + ". A safe parameter treats typed input as plain data. This one passes input into the database command itself, so the structure of the command can be changed from outside. Treat this as a defect to fix in code — the fix is shown below — not as a tuning issue.";
+    $("evidenceBox").textContent = place + " parameter '" + param + "'" + (title ? "\nTest: " + title : "") + (payload ? "\nPayload: " + payload : "");
+    $("evidenceNote").textContent = "The single quote (') in a test string closed the expected text value early, and the appended condition was evaluated inside the database query — the page's response confirmed it.";
+  } else if (cls === "pass") {
+    stamp.textContent = "VERDICT: NO INJECTION DETECTED";
+    $("verdictHeadline").textContent = "Tested parameters did not respond to injection probes under " + MODES[state.mode].name + " depth.";
+    $("verdictSummary").textContent = "No injection behavior was detected on the tested parameters. The application handled unexpected quotes, boolean conditions, and syntax probes safely during this check.";
+    $("plainText").textContent = "Every probe sent during this inspection was handled as data, not as a command. That is the expected behaviour of parameterised queries. This verdict covers the parameters and depth tested here — it is a measurement of this endpoint at this depth, not a guarantee about the whole application.";
+    $("evidenceBox").textContent = "Requests sent: see raw telemetry (" + state.logCount + " log lines)\nParameters tested: " + state.paramNames.join(", ") + "\nResult: page responses stayed stable across true/false and syntax probes.";
+    $("evidenceNote").textContent = "No payload produced a systematic response change, a database error, or a time delay.";
+  } else {
+    stamp.textContent = aborted ? "VERDICT: INSPECTION STOPPED BY OPERATOR" : "VERDICT: INSPECTION BLOCKED BY UPSTREAM FILTER (WAF)";
+    $("verdictHeadline").textContent = aborted ? "The inspection was stopped before a verdict could be reached." :
+      "An upstream firewall or rate-limiter intercepted the inspection requests (HTTP 403 / 429).";
+    $("verdictSummary").textContent = aborted ? "Partial telemetry is preserved in the raw log drawer on the previous screen. No conclusion about the parameter should be drawn from a partial run." :
+      "An upstream security filter or firewall interrupted the test requests before we could verify how the database handles them. If this is your staging server, temporarily allowlist your testing IP to inspect the application code directly.";
+    $("plainText").textContent = "An inconclusive result is not a pass. To tell a WAF block apart from genuinely safe code, re-run against a staging environment, or allowlist the testing address at the filter, then inspect again.";
+    $("evidenceBox").textContent = "See the raw telemetry log for the interception responses (" + state.logCount + " lines recorded).";
+    $("evidenceNote").textContent = "Guidance: check whether the block came from a CDN/WAF (e.g., Cloudflare, AWS WAF) versus application-level input handling, then re-test in staging.";
+  }
+  $("fParam").textContent = place + " parameter '" + param + "'";
+  $("fTechnique").textContent = techniques.length ? techniques.join(" & ") : MODES[state.mode].name + " probe set";
+  $("fDbms").textContent = dbms || "Not identified";
+  $("metaGrid").innerHTML =
+    '<div><div class="k">Timestamp</div><div class="v">' + new Date().toISOString().replace("T"," ").slice(0,19) + ' UTC</div></div>' +
+    '<div><div class="k">Duration</div><div class="v">' + duration + '</div></div>' +
+    '<div><div class="k">Mode</div><div class="v">' + MODES[state.mode].name + '</div></div>' +
+    '<div><div class="k">Authorized By</div><div class="v">Local Operator • Signed: ' + (state.signedAt || "—") + '</div></div>';
+  $("remediationBlock").style.display = cls === "fail" ? "block" : "none";
+  renderRemediation();
+  saveRecent(verdict);
+  setScreen(3);
+}
+
+function poll(){
+  if (!state.taskid) return;
+  var base = "/datum/scan/" + state.taskid;
+  Promise.all([
+    fetch(base + "/status").then(function(r){ return r.json(); }),
+    fetch(base + "/log").then(function(r){ return r.json(); })
+  ]).then(function(res){
+    var status = res[0], log = res[1];
+    var lines = log.log || [];
+    renderLog(lines);
+    var idx = inferStage(lines);
+    if (state.stageIdx < 0 && lines.length) { state.stageIdx = 0; setStage(0, "active", "Establishing local API session and verifying target reachability..."); }
+    if (idx > state.stageIdx) {
+      for (var i = 0; i < idx; i++) setStage(i, "complete");
+      state.stageIdx = idx;
+      var names = {0:"Checking connection",1:"Heuristic probe",2:"Boolean testing",3:"Time-delay testing",4:"Database fingerprinting"};
+      $("liveRegion").textContent = names[idx] + " in progress";
+    }
+    if (idx >= 0) {
+      var last = lines.length ? lines[lines.length-1].message : "";
+      setStage(idx, "active", last.length > 110 ? last.slice(0,110) + "…" : last);
+      if (idx === 2 && !lines.some(function(l){ return /boolean/i.test(l.message); }))
+        setStage(2, "active", "Testing boolean conditions — checking if the page content changes systematically when true versus false statements are appended.");
+    }
+    if (status.status === "terminated" || status.status === "not running") {
+      fetch(base + "/data").then(function(r){ return r.json(); }).then(function(data){
+        finishScan(data || {}, lines, false);
+      });
+    }
+  }).catch(function(){});
+}
+
+function startScan(){
+  $("startError").classList.remove("show");
+  fetch("/datum/start", { method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ url: state.url, mode: state.mode }) })
+  .then(function(r){ return r.json(); })
+  .then(function(j){
+    if (!j.success) {
+      var e = $("startError"); e.textContent = "The inspection could not be started: " + (j.message || "unknown error"); e.classList.add("show");
+      return;
+    }
+    state.taskid = j.taskid; state.finished = false; state.stageIdx = -1; state.stageStart = {}; state.stageDur = {};
+    state.signedAt = new Date().toISOString().replace("T"," ").slice(0,19) + " UTC";
+    $("sumUrl").textContent = state.url;
+    $("sumMode").textContent = MODES[state.mode].name;
+    $("cmdText").textContent = equivalentCmd();
+    $("cmdGlossary").innerHTML = GLOSSARY.filter(function(g){
+      return MODES[state.mode].cmd.indexOf(g[0]) >= 0 || g[0] === "--technique" && MODES[state.mode].cmd.indexOf("technique") >= 0;
+    }).map(function(g){ return '<div><span class="f">' + g[0] + '</span> — ' + g[1] + "</div>"; }).join("");
+    buildStages(); renderLog([]);
+    setScreen(2); startTimer();
+    clearInterval(state.pollInt); state.pollInt = setInterval(poll, 2000); poll();
+    health();
+  })
+  .catch(function(err){
+    var e = $("startError"); e.textContent = "The inspection could not be started: " + err.message; e.classList.add("show");
+  });
+}
+
+/* wiring */
+$("urlInput").addEventListener("input", parseParams);
+Array.prototype.forEach.call(document.querySelectorAll(".mode-card"), function(card){
+  card.addEventListener("click", function(){
+    document.querySelectorAll(".mode-card").forEach(function(c){ c.classList.remove("selected"); c.setAttribute("aria-checked","false"); });
+    card.classList.add("selected"); card.setAttribute("aria-checked","true");
+    state.mode = card.getAttribute("data-mode");
+  });
+});
+function toggleAuth(){
+  state.authed = !state.authed;
+  $("authGate").classList.toggle("checked", state.authed);
+  $("authBox").setAttribute("aria-checked", String(state.authed));
+  $("authNote").classList.remove("show");
+  $("authGate").classList.remove("attention");
+  refreshLaunch();
+}
+$("authBox").addEventListener("click", toggleAuth);
+$("authLabel").addEventListener("click", toggleAuth);
+$("runBtn").addEventListener("click", function(){
+  if (!state.authed) { $("authGate").classList.add("attention"); $("authNote").classList.add("show"); return; }
+  if (state.valid) startScan();
+});
+$("runBtn").addEventListener("mouseenter", function(){
+  if (!state.authed && state.valid) { /* button disabled; hint already visible */ }
+});
+$("labVuln").addEventListener("click", function(){ $("urlInput").value = location.origin + "/lab/item?id=1"; parseParams(); });
+$("labSafe").addEventListener("click", function(){ $("urlInput").value = location.origin + "/lab/safe-item?id=1"; parseParams(); });
+Array.prototype.forEach.call(document.querySelectorAll("[data-drawer]"), function(bar){
+  bar.addEventListener("click", function(e){
+    if (e.target.id === "copyCmd") return;
+    $(bar.getAttribute("data-drawer")).classList.toggle("open");
+  });
+});
+$("copyCmd").addEventListener("click", function(e){ e.stopPropagation(); navigator.clipboard && navigator.clipboard.writeText(equivalentCmd()); });
+$("copyEvidence").addEventListener("click", function(){ navigator.clipboard && navigator.clipboard.writeText($("evidenceBox").textContent); });
+$("copyFix").addEventListener("click", function(){ navigator.clipboard && navigator.clipboard.writeText(REMEDIATION[currentLang].good); });
+$("abortBtn").addEventListener("click", function(){
+  if (!state.taskid) { setScreen(1); return; }
+  fetch("/datum/scan/" + state.taskid + "/stop").then(function(){
+    return fetch("/datum/scan/" + state.taskid + "/data").then(function(r){ return r.json(); }).catch(function(){ return {}; });
+  }).then(function(data){
+    fetch("/datum/scan/" + state.taskid + "/log").then(function(r){ return r.json(); }).then(function(log){
+      finishScan(data || {}, (log && log.log) || [], true);
+    });
+  });
+});
+$("newScanBtn").addEventListener("click", function(){ setScreen(1); });
+$("printBtn").addEventListener("click", function(){ window.print(); });
+renderRecent(); refreshLaunch(); health(); setInterval(health, 15000);
+</script>
+</body>
+</html>
