@@ -228,7 +228,7 @@ class Handler(BaseHTTPRequestHandler):
                 # Full Engine mode: the complete sqlmap option surface, whitelisted.
                 # Detection depth + every enumeration/extraction action the REST
                 # API supports (same options the CLI takes — see lib/core/optiondict.py).
-                for key in ("data", "cookie", "technique", "tamper"):
+                for key in ("data", "cookie", "headers", "technique", "tamper"):
                     if full.get(key):
                         options[key] = str(full[key])
                 for key in ("level", "risk", "threads"):
