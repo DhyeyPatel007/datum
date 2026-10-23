@@ -361,7 +361,7 @@ button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
 
   <div class="foot">
     <span>DATUM // 01 · SPEC-AUDITOR // REV 4.2 · Engine: sqlmap (open source, GPLv2) via its local REST API</span>
-    <span>Authorised targets only. Runs locally — no scan data leaves this device.</span>
+    <span>Authorised targets only. Scan traffic goes only between this DATUM instance and the target you enter.</span>
   </div>
 </div>
 <script>
@@ -550,28 +550,37 @@ function finishScan(data, lines, aborted){
     if (entry.type_name === "DBMS_FINGERPRINT") fingerprint = entry.value;
     if (entry.type_name === "BANNER") banner = entry.value;
   });
-  /* WAF detection keys only on sqlmap's actual detection messages (CRITICAL "heuristics
-     detected that the target is protected..."), never on its routine INFO line "checking if
-     the target is protected by some kind of WAF/IPS" — that line appears in every run. */
-  var waf = lines.some(function(l){
-    return /heuristics detected that the target is protected/i.test(l.message) ||
-           (l.level === "CRITICAL" && /WAF\/IPS/i.test(l.message)) ||
-           /HTTP error code detected during run: (403|429)/i.test(l.message);
-  });
-  /* Verdict precedence (fixed 2026-10-23 after a live krynex.in run): a COMPLETED scan's
-     result wins over the WAF label. sqlmap's end-of-run summary "all tested parameters do
-     not appear to be injectable" (or a returned DBMS fingerprint) proves testing finished;
-     the WAF heuristic can fire mid-run on a scan that still completes. WAF BLOCKED is
-     reserved for runs the filter actually stopped from reaching a conclusion. */
-  var completed = lines.some(function(l){
-    return /all tested parameters do not appear to be injectable/i.test(l.message);
-  }) || !!fingerprint || !!banner;
+  /* ---- Verdict classification, audited 2026-10-23 against the sqlmap source and real
+     run logs. Every ending the engine can produce is classified explicitly, and
+     NOT INJECTABLE now requires positive proof the scan completed (its end-of-run
+     summary line, lib/controller/controller.py, or a returned DBMS fingerprint).
+     Any unproven ending is INCONCLUSIVE — never a silent pass. The WAF heuristic
+     (lib/controller/checks.py checkWaf) fires BEFORE parameter testing begins, so
+     its CRITICAL line alone says nothing about whether testing later completed. */
+  function has(re){ return lines.some(function(l){ return re.test(l.message); }); }
+  /* Only the two precise signals count as WAF evidence: sqlmap's own detection sentence
+     (both its fresh and cached wordings contain this exact phrase — checks.py) and its
+     HTTP-error summary. A broader "any CRITICAL line containing WAF/IPS" clause was
+     removed after an independent review (Gemini, AI Studio, 2026-10-23) showed it could
+     false-positive on unrelated CRITICAL lines that merely echo the target URL. */
+  var waf = has(/heuristics detected that the target is protected/i) ||
+            has(/HTTP error code detected during run: (403|429)/i);
+  var completed = has(/all tested parameters do not appear to be injectable/i) || !!fingerprint || !!banner;
+  var testsRan = completed ||
+            has(/heuristic \(basic\) test|does not appear to be dynamic|appears to be dynamic|might not be (?:SQL )?injectable|does not seem to be injectable/i);
+  var unreachable = (has(/can't establish SSL connection/i) || has(/unable to connect to the target URL/i) ||
+            has(/please check your Internet connection/i)) && !testsRan;
+  var noParams = has(/no parameter\(s\) found for testing/i);
   var inj = injections.length ? injections[0] : null;
-  var verdict, cls;
-  if (aborted) { verdict = "INCONCLUSIVE — STOPPED"; cls = "warn"; }
-  else if (inj) { verdict = "INJECTABLE"; cls = "fail"; }
-  else if (waf && !completed) { verdict = "WAF BLOCKED"; cls = "warn"; }
-  else { verdict = "NOT INJECTABLE"; cls = "pass"; }
+  var verdict, cls, kind;
+  if (aborted) { verdict = "INCONCLUSIVE — STOPPED"; cls = "warn"; kind = "stopped"; }
+  else if (inj) { verdict = "INJECTABLE"; cls = "fail"; kind = "injectable"; }
+  else if (completed) { verdict = "NOT INJECTABLE"; cls = "pass"; kind = "clean"; }
+  else if (unreachable) { verdict = "INCONCLUSIVE — TARGET UNREACHABLE"; cls = "warn"; kind = "unreachable"; }
+  else if (noParams) { verdict = "INCONCLUSIVE — NO TESTABLE PARAMETER"; cls = "warn"; kind = "noparam"; }
+  else if (waf && !testsRan) { verdict = "WAF BLOCKED"; cls = "warn"; kind = "waf"; }
+  else if (waf && testsRan) { verdict = "INCONCLUSIVE — INTERRUPTED BY FILTER"; cls = "warn"; kind = "interrupted"; }
+  else { verdict = "INCONCLUSIVE — INCOMPLETE"; cls = "warn"; kind = "incomplete"; }
 
   var bannerEl = $("verdictBanner");
   bannerEl.className = "verdict " + cls;
@@ -604,14 +613,41 @@ function finishScan(data, lines, aborted){
     $("evidenceNote").textContent = "No payload produced a systematic response change, a database error, or a time delay." +
       (waf ? " Note: an upstream filter (WAF / rate limiter) interfered during this run, but testing still completed — the interference is recorded here as a note, not the verdict." : "");
   } else {
-    stamp.textContent = aborted ? "VERDICT: INSPECTION STOPPED BY OPERATOR" : "VERDICT: INSPECTION BLOCKED BY UPSTREAM FILTER (WAF)";
-    $("verdictHeadline").textContent = aborted ? "The inspection was stopped before a verdict could be reached." :
-      "An upstream firewall or rate-limiter intercepted the inspection requests (HTTP 403 / 429).";
-    $("verdictSummary").textContent = aborted ? "Partial telemetry is preserved in the raw log drawer on the previous screen. No conclusion about the parameter should be drawn from a partial run." :
-      "An upstream security filter or firewall interrupted the test requests before we could verify how the database handles them. If this is your staging server, temporarily allowlist your testing IP to inspect the application code directly.";
-    $("plainText").textContent = "An inconclusive result is not a pass. To tell a WAF block apart from genuinely safe code, re-run against a staging environment, or allowlist the testing address at the filter, then inspect again.";
-    $("evidenceBox").textContent = "See the raw telemetry log for the interception responses (" + state.logCount + " lines recorded).";
-    $("evidenceNote").textContent = "Guidance: check whether the block came from a CDN/WAF (e.g., Cloudflare, AWS WAF) versus application-level input handling, then re-test in staging.";
+    var WC = {
+      stopped: ["VERDICT: INSPECTION STOPPED BY OPERATOR",
+        "The inspection was stopped before a verdict could be reached.",
+        "Partial telemetry is preserved in the raw log drawer on the previous screen. No conclusion about the parameter should be drawn from a partial run.",
+        "An inconclusive result is not a pass. Re-run the inspection to a conclusion before drawing any conclusion about this parameter."],
+      waf: ["VERDICT: INSPECTION BLOCKED BY UPSTREAM FILTER (WAF)",
+        "An upstream firewall or rate-limiter intercepted the inspection requests before testing could begin (HTTP 403 / 429).",
+        "An upstream security filter stopped the inspection at the door, before any parameter could be verified. If this is your staging server, temporarily allowlist your testing IP to inspect the application code directly.",
+        "An inconclusive result is not a pass. To tell a WAF block apart from genuinely safe code, re-run against a staging environment, or allowlist the testing address at the filter, then inspect again."],
+      interrupted: ["VERDICT: INCONCLUSIVE — FILTER INTERRUPTED THE INSPECTION",
+        "Testing began, but an upstream firewall or rate-limiter cut the inspection off before it could reach a conclusion.",
+        "Some probes were sent, then interception (HTTP 403 / 429) prevented the remaining verification. This run is unfinished — it is neither a pass nor a block at the door.",
+        "An inconclusive result is not a pass. Re-run when the filter is less aggressive, or allowlist the testing address at the filter, then inspect again."],
+      unreachable: ["VERDICT: INCONCLUSIVE — TARGET UNREACHABLE",
+        "The inspection could not establish a working connection to the target.",
+        "No test was performed: the target did not answer (connection or TLS failure), so nothing about the parameter was measured.",
+        "Nothing was tested, so nothing was proven either way. Check the URL is correct and the site is up, then inspect again."],
+      noparam: ["VERDICT: INCONCLUSIVE — NO TESTABLE PARAMETER",
+        "The URL did not expose a parameter the engine could test.",
+        "No conclusion can be drawn from this run: the engine found no parameter(s) to test in the URL provided.",
+        "A parameter the application ignores cannot be judged. Test a URL whose parameter actually changes what the page returns, then inspect again."],
+      incomplete: ["VERDICT: INCONCLUSIVE — INSPECTION INCOMPLETE",
+        "The inspection ended before reaching a conclusion.",
+        "The engine stopped without a definitive result, so no conclusion about the parameter should be drawn from this run.",
+        "An inconclusive result is not a pass. Inspect again and let the run finish before drawing any conclusion."]
+    };
+    var wc = WC[kind] || WC.incomplete;
+    stamp.textContent = wc[0];
+    $("verdictHeadline").textContent = wc[1];
+    $("verdictSummary").textContent = wc[2];
+    $("plainText").textContent = wc[3];
+    $("evidenceBox").textContent = "See the raw telemetry log for the exact engine messages (" + state.logCount + " lines recorded).";
+    $("evidenceNote").textContent = (kind === "waf" || kind === "interrupted") ?
+      "Guidance: check whether the block came from a CDN/WAF (e.g., Cloudflare, AWS WAF) versus application-level input handling, then re-test in staging." :
+      "Guidance: the raw telemetry log on the previous screen holds the exact engine messages behind this outcome.";
   }
   $("fParam").textContent = place + " parameter '" + param + "'";
   $("fTechnique").textContent = techniques.length ? techniques.join(" & ") : MODES[state.mode].name + " probe set";
