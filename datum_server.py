@@ -207,9 +207,12 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(length) or b"{}")
             url = (body.get("url") or "").strip()
-            mode = MODES.get(body.get("mode") or "confirm", MODES["confirm"])
-            if not (url.startswith("http://") or url.startswith("https://")) or "?" not in url:
-                self._json({"success": False, "message": "URL must start with http:// or https:// and contain a query parameter"}, 400)
+            mode_name = body.get("mode") or "confirm"
+            full = body.get("full") if mode_name == "full" else None
+            mode = {} if mode_name == "full" else MODES.get(mode_name, MODES["confirm"])
+            has_params = "?" in url or (full and (full.get("data") or full.get("cookie")))
+            if not (url.startswith("http://") or url.startswith("https://")) or not has_params:
+                self._json({"success": False, "message": "URL must start with http:// or https:// and contain a query parameter (or POST data / cookies in Full Engine mode)"}, 400)
                 return
             if HOSTED and not UI_PASSWORD:
                 self._json({"success": False, "message": "Hosted mode requires DATUM_UI_PASSWORD to be set"}, 500)
@@ -221,6 +224,27 @@ class Handler(BaseHTTPRequestHandler):
             taskid = task.get("taskid")
             options = {"url": url, "batch": True, "flushSession": True}
             options.update(mode)
+            if full:
+                # Full Engine mode: the complete sqlmap option surface, whitelisted.
+                # Detection depth + every enumeration/extraction action the REST
+                # API supports (same options the CLI takes — see lib/core/optiondict.py).
+                for key in ("data", "cookie", "technique", "tamper"):
+                    if full.get(key):
+                        options[key] = str(full[key])
+                for key in ("level", "risk", "threads"):
+                    if full.get(key):
+                        options[key] = max(1, min(int(full[key]), 5 if key == "level" else 3 if key == "risk" else 10))
+                if full.get("delay"):
+                    options["delay"] = float(full["delay"])
+                for key in ("getBanner", "getCurrentUser", "getCurrentDb", "isDba",
+                            "getUsers", "getPasswordHashes", "getPrivileges",
+                            "getDbs", "getTables", "getColumns", "dumpTable"):
+                    if full.get(key):
+                        options[key] = True
+                if full.get("db"):
+                    options["db"] = str(full["db"])
+                if full.get("tbl"):
+                    options["tbl"] = str(full["tbl"])
             # sqlmap does not read proxy env vars itself. On networks whose only
             # egress is a proxy (e.g. this VM), direct TLS to outside targets is
             # cut — so forward the environment's proxy for non-local targets.

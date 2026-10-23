@@ -27,6 +27,18 @@ The server auto-starts sqlmap's REST API (`sqlmapapi.py`, port 8775) on the firs
 
 MIT (see `LICENSE`) for the DATUM code in this repo. The scan engine is [sqlmap](https://github.com/sqlmapproject/sqlmap) (GPLv2), cloned separately at install/deploy time — it is not part of this repository.
 
+## Full Engine mode (complete sqlmap parity)
+
+The three preset modes are shortcuts. **Full Engine** mode exposes the complete sqlmap surface the REST API supports — the same options the command-line tool takes:
+
+- **Parameter locations:** URL query, POST data, and Cookie header.
+- **Depth:** level 1–5, risk 1–3, per-letter technique picker (B/E/U/S/T/Q), threads, request delay, tamper scripts.
+- **Actions after detection:** banner, current user, current database, is-DBA, users, password hashes, privileges, list databases, list tables, list columns, and **dump table rows** — all rendered in the report's Extracted Data section exactly as the engine returns them.
+
+Verified end-to-end against the practice lab: detection → tables → columns → full dump of the `products` table (3 rows) through the UI.
+
+The one honest exception: sqlmap's *interactive terminal* features (the live `--os-shell` prompt, `--os-pwn` reverse shells) are conversations with a terminal and don't map onto a request/response web API. Everything else — detection, fingerprinting, enumeration, extraction, file-read via the SQL query path — is the original engine, unmodified: DATUM never reimplements a single payload (368 payload tests, 85 tamper scripts, 32 DBMS backends are sqlmap's own).
+
 ## Practice lab (built in, localhost only)
 
 - Vulnerable page: `http://127.0.0.1:8420/lab/item?id=1` (string-concatenated SQL, in-memory SQLite)

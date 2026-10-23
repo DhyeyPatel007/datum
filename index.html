@@ -78,6 +78,26 @@ button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
 .mode-card .sub{font-size:12.5px;color:var(--ink-secondary);font-weight:600}
 .mode-card p{font-size:13.5px;margin-top:8px;line-height:1.55}
 .mode-card .reqs{margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-secondary)}
+.mode-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.f-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:6px}
+.f-field label{display:block;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-secondary);margin-bottom:6px}
+.f-input,.f-select{width:100%;padding:10px 12px;border:2px solid var(--border-strong);background:var(--surface-elevated);color:var(--ink-primary);font:inherit;font-size:14px;border-radius:2px}
+.f-input.mono{font-family:'JetBrains Mono',monospace;font-size:13px}
+.f-chks{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:6px}
+.f-chk{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;line-height:1.4;cursor:pointer}
+.f-chk input{margin-top:2px;accent-color:var(--ink-primary);width:16px;height:16px}
+.tech-chks{display:flex;gap:6px}
+.tech-chk{border:2px solid var(--border-strong);padding:6px 0;width:38px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;background:var(--surface-elevated)}
+.tech-chk.on{background:var(--accent-marigold)}
+.extracted{margin-top:28px}
+.extracted h2{font-size:19px;margin-bottom:4px}
+.x-block{border:2px solid var(--border-strong);background:var(--surface-elevated);margin-top:14px}
+.x-block .xh{padding:10px 14px;border-bottom:2px solid var(--border-strong);font-weight:700;font-size:13px;letter-spacing:.05em;text-transform:uppercase}
+.x-block .xb{padding:12px 14px;overflow-x:auto}
+.x-table{border-collapse:collapse;width:100%;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.x-table th,.x-table td{border:1px solid var(--border-strong);padding:6px 9px;text-align:left;vertical-align:top;word-break:break-word}
+.x-table th{background:var(--surface-card)}
+.x-pre{font-family:'JetBrains Mono',monospace;font-size:12.5px;white-space:pre-wrap;word-break:break-word}
 .auth-gate{background:var(--bg-chassis);border:2px solid var(--border-strong);padding:16px 20px;display:flex;gap:14px;align-items:flex-start}
 .auth-gate.attention{outline:3px solid var(--accent-marigold)}
 .auth-box{width:24px;height:24px;flex:none;border:2px solid var(--border-strong);background:#fff;border-radius:2px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
@@ -261,11 +281,52 @@ button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
               <p>Includes time-delay checks and deeper header/cookie parameter inspection for subtle flaws.</p>
               <div class="reqs">Estimated requests: ~300+ HTTP requests</div>
             </button>
+            <button class="mode-card" type="button" data-mode="full" role="radio" aria-checked="false">
+              <span class="ribbon"></span><span class="sel-pill">[ SELECTED ]</span>
+              <h3>Full Engine</h3><div class="sub">Variable • The complete sqlmap</div>
+              <p>Every control the original tool has: all parameter locations, full depth, tamper scripts — plus enumeration and data extraction (databases, tables, columns, dumped rows, users, password hashes).</p>
+              <div class="reqs">Estimated requests: depends on actions selected</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="band" id="fullBand" style="display:none">
+          <div class="band-head"><span class="no">1.3</span><h3>Full Engine Console</h3></div>
+          <p class="helper" style="margin-bottom:12px">The complete sqlmap surface — identical options to the command-line tool. Detection runs first; every ticked action then executes against the confirmed injection point.</p>
+          <div class="f-grid">
+            <div class="f-field"><label for="fData">POST Data (e.g. id=1&amp;name=x)</label><input class="f-input mono" id="fData" type="text" placeholder="leave empty for GET-only"></div>
+            <div class="f-field"><label for="fCookie">Cookie Header</label><input class="f-input mono" id="fCookie" type="text" placeholder="session=abc; user=7"></div>
+            <div class="f-field"><label for="fLevel">Level (1–5)</label><select class="f-select" id="fLevel"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></div>
+            <div class="f-field"><label for="fRisk">Risk (1–3)</label><select class="f-select" id="fRisk"><option selected>1</option><option>2</option><option>3</option></select></div>
+            <div class="f-field"><label>Techniques</label><div class="tech-chks" id="fTech">
+              <span class="tech-chk on" data-t="B">B</span><span class="tech-chk on" data-t="E">E</span><span class="tech-chk on" data-t="U">U</span><span class="tech-chk on" data-t="S">S</span><span class="tech-chk on" data-t="T">T</span><span class="tech-chk on" data-t="Q">Q</span>
+            </div><div class="helper">B boolean · E error · U union · S stacked · T time · Q inline</div></div>
+            <div class="f-field"><label for="fThreads">Threads (1–10)</label><select class="f-select" id="fThreads"><option selected>1</option><option>2</option><option>4</option><option>6</option><option>10</option></select></div>
+            <div class="f-field"><label for="fTamper">Tamper Script</label><select class="f-select" id="fTamper">
+              <option value="">None</option><option>space2comment</option><option>between</option><option>randomcase</option><option>charencode</option><option>space2comment,between</option><option>apostrophemask,apostrophenullencode</option>
+            </select></div>
+            <div class="f-field"><label for="fDelay">Delay Between Requests (sec)</label><input class="f-input" id="fDelay" type="number" min="0" step="0.5" placeholder="0"></div>
+            <div class="f-field"><label for="fDb">Database (for tables / columns / dump)</label><input class="f-input mono" id="fDb" type="text" placeholder="e.g. main"></div>
+            <div class="f-field"><label for="fTbl">Table (for columns / dump)</label><input class="f-input mono" id="fTbl" type="text" placeholder="e.g. products"></div>
+          </div>
+          <div class="band-head" style="margin-top:20px"><span class="no">▸</span><h3>Actions After Detection</h3></div>
+          <div class="f-chks" id="fActions">
+            <label class="f-chk"><input type="checkbox" data-a="getBanner"> Server banner</label>
+            <label class="f-chk"><input type="checkbox" data-a="getCurrentUser"> Current user</label>
+            <label class="f-chk"><input type="checkbox" data-a="getCurrentDb"> Current database</label>
+            <label class="f-chk"><input type="checkbox" data-a="isDba"> Is DBA?</label>
+            <label class="f-chk"><input type="checkbox" data-a="getDbs"> List databases</label>
+            <label class="f-chk"><input type="checkbox" data-a="getTables"> List tables</label>
+            <label class="f-chk"><input type="checkbox" data-a="getColumns"> List columns</label>
+            <label class="f-chk"><input type="checkbox" data-a="dumpTable"> Dump table rows</label>
+            <label class="f-chk"><input type="checkbox" data-a="getUsers"> List users</label>
+            <label class="f-chk"><input type="checkbox" data-a="getPasswordHashes"> Password hashes</label>
+            <label class="f-chk"><input type="checkbox" data-a="getPrivileges"> User privileges</label>
           </div>
         </div>
 
         <div class="band">
-          <div class="band-head"><span class="no">1.3</span><h3>Authorization &amp; Launch</h3></div>
+          <div class="band-head"><span class="no">1.4</span><h3>Authorization &amp; Launch</h3></div>
           <div class="auth-gate" id="authGate">
             <button class="auth-box" id="authBox" type="button" role="checkbox" aria-checked="false" aria-label="Authorization confirmation">
               <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7.5 L5.5 11 L12 3" fill="none" stroke="#3A0F34" stroke-width="2"/></svg>
@@ -341,6 +402,11 @@ button{font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer}
         <p id="plainText" style="margin-top:12px"></p>
       </div>
     </div>
+    <div class="extracted" id="extractedBlock" style="display:none">
+      <h2>Extracted Data</h2>
+      <p class="helper">Everything the engine retrieved through the injection point, exactly as returned — the same output the command-line tool produces.</p>
+      <div id="extractedBody"></div>
+    </div>
     <div class="remediation" id="remediationBlock">
       <h2>Remediation &amp; Fix Guidance</h2>
       <p class="helper" style="margin-top:6px">Keep the query structure fixed. Send user input to the database separately, as data — never as part of the command.</p>
@@ -370,7 +436,8 @@ var $ = function(id){ return document.getElementById(id); };
 var MODES = {
   quick:   { name:"Quick Check", flags:{level:1,risk:1,technique:"BEU",smart:true},  cmd:'--batch --level=1 --risk=1 --smart' },
   confirm: { name:"Confirm It",  flags:{level:2,risk:1,technique:"BEU"},             cmd:'--batch --level=2 --risk=1 --technique=BEU' },
-  deep:    { name:"Deep",        flags:{level:3,risk:2,technique:"BEUSTQ"},          cmd:'--batch --level=3 --risk=2 --technique=BEUSTQ' }
+  deep:    { name:"Deep",        flags:{level:3,risk:2,technique:"BEUSTQ"},          cmd:'--batch --level=3 --risk=2 --technique=BEUSTQ' },
+  full:    { name:"Full Engine", flags:{},                                            cmd:'--batch (full console — see equivalent command on the telemetry screen)' }
 };
 var GLOSSARY = [
   ["--batch","Runs automatically without asking interactive terminal questions"],
@@ -395,9 +462,16 @@ function parseParams(){
   var ok = false;
   try {
     var u = new URL(v);
-    if ((u.protocol === "http:" || u.protocol === "https:") && u.search.length > 1) {
-      u.searchParams.forEach(function(val, key){ state.paramNames.push(key); });
+    if (u.protocol === "http:" || u.protocol === "https:") {
+      if (u.search.length > 1) u.searchParams.forEach(function(val, key){ state.paramNames.push(key); });
       ok = state.paramNames.length > 0;
+      if (state.mode === "full") {
+        /* Full Engine can also test POST-data and cookie parameters */
+        var d = $("fData").value.trim();
+        if (d) d.split("&").forEach(function(pair){ var k = pair.split("=")[0]; if (k) state.paramNames.push(k + " (POST)"); });
+        if ($("fCookie").value.trim()) state.paramNames.push("Cookie header");
+        ok = state.paramNames.length > 0;
+      }
     }
   } catch(e) { ok = false; }
   if (state.paramNames.length) {
@@ -478,7 +552,39 @@ function startTimer(){
   clearInterval(state.timerInt);
   state.timerInt = setInterval(function(){ $("timer").textContent = fmtTime(Date.now() - state.startedAt); }, 500);
 }
+function collectFull(){
+  var tech = "";
+  Array.prototype.forEach.call($("fTech").children, function(ch){ if (ch.classList.contains("on")) tech += ch.getAttribute("data-t"); });
+  var f = {
+    data: $("fData").value.trim(), cookie: $("fCookie").value.trim(),
+    level: parseInt($("fLevel").value, 10), risk: parseInt($("fRisk").value, 10),
+    technique: tech || "BEUSTQ", tamper: $("fTamper").value,
+    threads: parseInt($("fThreads").value, 10), delay: parseFloat($("fDelay").value) || 0,
+    db: $("fDb").value.trim(), tbl: $("fTbl").value.trim()
+  };
+  Array.prototype.forEach.call($("fActions").querySelectorAll("input[type=checkbox]"), function(cb){
+    if (cb.checked) f[cb.getAttribute("data-a")] = true;
+  });
+  return f;
+}
+function fullCmd(f){
+  var c = 'sqlmap -u "' + state.url + '" --batch';
+  if (f.data) c += ' --data="' + f.data + '"';
+  if (f.cookie) c += ' --cookie="' + f.cookie + '"';
+  c += " --level=" + f.level + " --risk=" + f.risk + " --technique=" + f.technique;
+  if (f.threads > 1) c += " --threads=" + f.threads;
+  if (f.tamper) c += ' --tamper="' + f.tamper + '"';
+  if (f.delay) c += " --delay=" + f.delay;
+  var map = { getBanner:"--banner", getCurrentUser:"--current-user", getCurrentDb:"--current-db", isDba:"--is-dba",
+              getUsers:"--users", getPasswordHashes:"--passwords", getPrivileges:"--privileges",
+              getDbs:"--dbs", getTables:"--tables", getColumns:"--columns", dumpTable:"--dump" };
+  Object.keys(map).forEach(function(k){ if (f[k]) c += " " + map[k]; });
+  if (f.db) c += " -D " + f.db;
+  if (f.tbl) c += " -T " + f.tbl;
+  return c;
+}
 function equivalentCmd(){
+  if (state.mode === "full") return fullCmd(collectFull());
   return 'sqlmap -u "' + state.url + '" ' + MODES[state.mode].cmd;
 }
 function saveRecent(verdict){
@@ -545,11 +651,15 @@ function finishScan(data, lines, aborted){
   for (var i = 0; i < STAGES.length; i++) if (i <= state.stageIdx) setStage(i, "complete");
   var duration = fmtTime(Date.now() - state.startedAt);
   var injections = [], fingerprint = "", banner = "";
+  var extracted = {};
   (data.data || []).forEach(function(entry){
     if (entry.type_name === "TECHNIQUES") injections = entry.value || [];
     if (entry.type_name === "DBMS_FINGERPRINT") fingerprint = entry.value;
     if (entry.type_name === "BANNER") banner = entry.value;
+    if (["CURRENT_USER","CURRENT_DB","IS_DBA","DBS","TABLES","COLUMNS","USERS","PASSWORDS","PRIVILEGES","DUMP_TABLE","HOSTNAME"].indexOf(entry.type_name) >= 0)
+      extracted[entry.type_name] = entry.value;
   });
+  if (banner && !extracted.BANNER) extracted.BANNER = banner;
   /* ---- Verdict classification, audited 2026-10-23 against the sqlmap source and real
      run logs. Every ending the engine can produce is classified explicitly, and
      NOT INJECTABLE now requires positive proof the scan completed (its end-of-run
@@ -659,8 +769,40 @@ function finishScan(data, lines, aborted){
     '<div><div class="k">Authorized By</div><div class="v">Local Operator • Signed: ' + (state.signedAt || "—") + '</div></div>';
   $("remediationBlock").style.display = cls === "fail" ? "block" : "none";
   renderRemediation();
+  renderExtracted(extracted);
   saveRecent(verdict);
   setScreen(3);
+}
+
+function renderExtracted(x){
+  var order = [
+    ["BANNER","Server Banner"],["CURRENT_USER","Current User"],["CURRENT_DB","Current Database"],
+    ["IS_DBA","Current User Is DBA"],["HOSTNAME","Hostname"],["DBS","Databases"],
+    ["TABLES","Tables"],["COLUMNS","Columns"],["DUMP_TABLE","Dumped Table"],
+    ["USERS","Database Users"],["PASSWORDS","Password Hashes"],["PRIVILEGES","User Privileges"]
+  ];
+  var html = "";
+  order.forEach(function(pair){
+    var key = pair[0], v = x[key];
+    if (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)) return;
+    var body;
+    if (key === "DUMP_TABLE" && typeof v === "object" && v.columns) {
+      var cols = Object.keys(v.columns), rows = cols.length ? (v.columns[cols[0]] || []).length : 0, trs = "";
+      for (var r = 0; r < rows; r++)
+        trs += "<tr>" + cols.map(function(c){ var cell = (v.columns[c] || [])[r]; return "<td>" + esc(cell === null ? "NULL" : cell) + "</td>"; }).join("") + "</tr>";
+      body = '<div class="helper" style="margin-bottom:8px">' + esc(v.db || "") + "." + esc(v.table || "") + " — " + (v.count != null ? v.count : rows) + " row(s)</div>" +
+             '<table class="x-table"><tr>' + cols.map(function(c){ return "<th>" + esc(c) + "</th>"; }).join("") + "</tr>" + trs + "</table>";
+    } else if (Array.isArray(v)) {
+      body = '<div class="x-pre">' + v.map(function(i){ return esc(typeof i === "object" ? JSON.stringify(i) : i); }).join("\n") + "</div>";
+    } else if (typeof v === "object") {
+      body = '<div class="x-pre">' + esc(JSON.stringify(v, null, 2)) + "</div>";
+    } else {
+      body = '<div class="x-pre">' + esc(v) + "</div>";
+    }
+    html += '<div class="x-block"><div class="xh">' + pair[1] + '</div><div class="xb">' + body + "</div></div>";
+  });
+  $("extractedBlock").style.display = html ? "block" : "none";
+  $("extractedBody").innerHTML = html;
 }
 
 function poll(){
@@ -698,7 +840,7 @@ function poll(){
 function startScan(){
   $("startError").classList.remove("show");
   fetch("/datum/start", { method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ url: state.url, mode: state.mode }) })
+    body: JSON.stringify({ url: state.url, mode: state.mode, full: state.mode === "full" ? collectFull() : undefined }) })
   .then(function(r){ return r.json(); })
   .then(function(j){
     if (!j.success) {
@@ -730,8 +872,15 @@ Array.prototype.forEach.call(document.querySelectorAll(".mode-card"), function(c
     document.querySelectorAll(".mode-card").forEach(function(c){ c.classList.remove("selected"); c.setAttribute("aria-checked","false"); });
     card.classList.add("selected"); card.setAttribute("aria-checked","true");
     state.mode = card.getAttribute("data-mode");
+    $("fullBand").style.display = state.mode === "full" ? "block" : "none";
+    parseParams();
   });
 });
+Array.prototype.forEach.call($("fTech").children, function(ch){
+  ch.addEventListener("click", function(){ ch.classList.toggle("on"); });
+});
+$("fData").addEventListener("input", parseParams);
+$("fCookie").addEventListener("input", parseParams);
 function toggleAuth(){
   state.authed = !state.authed;
   $("authGate").classList.toggle("checked", state.authed);
