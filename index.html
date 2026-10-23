@@ -550,19 +550,27 @@ function finishScan(data, lines, aborted){
     if (entry.type_name === "DBMS_FINGERPRINT") fingerprint = entry.value;
     if (entry.type_name === "BANNER") banner = entry.value;
   });
-  /* WAF verdict only on sqlmap's actual detection messages (CRITICAL "heuristics detected
-     that the target is protected..."), never on its routine INFO line "checking if the target
-     is protected by some kind of WAF/IPS" — that line appears in every run, including clean ones. */
+  /* WAF detection keys only on sqlmap's actual detection messages (CRITICAL "heuristics
+     detected that the target is protected..."), never on its routine INFO line "checking if
+     the target is protected by some kind of WAF/IPS" — that line appears in every run. */
   var waf = lines.some(function(l){
     return /heuristics detected that the target is protected/i.test(l.message) ||
            (l.level === "CRITICAL" && /WAF\/IPS/i.test(l.message)) ||
            /HTTP error code detected during run: (403|429)/i.test(l.message);
   });
+  /* Verdict precedence (fixed 2026-10-23 after a live krynex.in run): a COMPLETED scan's
+     result wins over the WAF label. sqlmap's end-of-run summary "all tested parameters do
+     not appear to be injectable" (or a returned DBMS fingerprint) proves testing finished;
+     the WAF heuristic can fire mid-run on a scan that still completes. WAF BLOCKED is
+     reserved for runs the filter actually stopped from reaching a conclusion. */
+  var completed = lines.some(function(l){
+    return /all tested parameters do not appear to be injectable/i.test(l.message);
+  }) || !!fingerprint || !!banner;
   var inj = injections.length ? injections[0] : null;
   var verdict, cls;
   if (aborted) { verdict = "INCONCLUSIVE — STOPPED"; cls = "warn"; }
   else if (inj) { verdict = "INJECTABLE"; cls = "fail"; }
-  else if (waf) { verdict = "WAF BLOCKED"; cls = "warn"; }
+  else if (waf && !completed) { verdict = "WAF BLOCKED"; cls = "warn"; }
   else { verdict = "NOT INJECTABLE"; cls = "pass"; }
 
   var bannerEl = $("verdictBanner");
@@ -585,14 +593,16 @@ function finishScan(data, lines, aborted){
     $("verdictSummary").textContent = "The '" + param + "' parameter accepts raw database instructions. Because user input is combined directly into the database query without separation, an external user could read or modify data they shouldn't have access to.";
     $("plainText").textContent = "During the inspection, the page answered differently when the test conditions were true versus false" + (techniques.join(" ").toLowerCase().indexOf("time") >= 0 ? ", and it waited measurably longer when asked to pause" : "") + ". A safe parameter treats typed input as plain data. This one passes input into the database command itself, so the structure of the command can be changed from outside. Treat this as a defect to fix in code — the fix is shown below — not as a tuning issue.";
     $("evidenceBox").textContent = place + " parameter '" + param + "'" + (title ? "\nTest: " + title : "") + (payload ? "\nPayload: " + payload : "");
-    $("evidenceNote").textContent = "The single quote (') in a test string closed the expected text value early, and the appended condition was evaluated inside the database query — the page's response confirmed it.";
+    $("evidenceNote").textContent = "The single quote (') in a test string closed the expected text value early, and the appended condition was evaluated inside the database query — the page's response confirmed it." +
+      (waf ? " An upstream filter also interfered during this run; the injection was confirmed regardless." : "");
   } else if (cls === "pass") {
     stamp.textContent = "VERDICT: NO INJECTION DETECTED";
     $("verdictHeadline").textContent = "Tested parameters did not respond to injection probes under " + MODES[state.mode].name + " depth.";
     $("verdictSummary").textContent = "No injection behavior was detected on the tested parameters. The application handled unexpected quotes, boolean conditions, and syntax probes safely during this check.";
     $("plainText").textContent = "Every probe sent during this inspection was handled as data, not as a command. That is the expected behaviour of parameterised queries. This verdict covers the parameters and depth tested here — it is a measurement of this endpoint at this depth, not a guarantee about the whole application.";
     $("evidenceBox").textContent = "Requests sent: see raw telemetry (" + state.logCount + " log lines)\nParameters tested: " + state.paramNames.join(", ") + "\nResult: page responses stayed stable across true/false and syntax probes.";
-    $("evidenceNote").textContent = "No payload produced a systematic response change, a database error, or a time delay.";
+    $("evidenceNote").textContent = "No payload produced a systematic response change, a database error, or a time delay." +
+      (waf ? " Note: an upstream filter (WAF / rate limiter) interfered during this run, but testing still completed — the interference is recorded here as a note, not the verdict." : "");
   } else {
     stamp.textContent = aborted ? "VERDICT: INSPECTION STOPPED BY OPERATOR" : "VERDICT: INSPECTION BLOCKED BY UPSTREAM FILTER (WAF)";
     $("verdictHeadline").textContent = aborted ? "The inspection was stopped before a verdict could be reached." :
